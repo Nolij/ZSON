@@ -57,6 +57,6 @@ public class Main {
 
 		System.out.println(json2);
 		writer.write(map, Files.newBufferedWriter(Paths.get("test.json5"), StandardCharsets.UTF_8));
-		ZsonParser.parseString(json2);
+//		ZsonParser.parseString(json2);
 	}
 }
