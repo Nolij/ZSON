@@ -3,6 +3,7 @@ package dev.nolij.zson;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.nio.file.Path;
 import java.util.Map;
 
 public final class ZsonWriter {
@@ -20,9 +21,16 @@ public final class ZsonWriter {
 		}
 		return writer.toString();
 	}
+
+	public void write(Map<String, ZsonValue> zson, Path path) throws IOException {
+		try (Writer w = java.nio.file.Files.newBufferedWriter(path)) {
+			write(zson, w);
+			w.flush();
+		}
+	}
 	
-	public void write(Map<String, ZsonValue> zson, Writer writer) throws IOException {
-		writer.write("{\n");
+	public void write(Map<String, ZsonValue> zson, Appendable a) throws IOException {
+		a.append("{\n");
 		
 		for (var entry : zson.entrySet()) {
 			String key = entry.getKey();
@@ -31,26 +39,25 @@ public final class ZsonWriter {
 			
 			if (comment != null) {
 				for (String line : comment.split("\n")) {
-					writer.write(indent);
-					writer.write("// ");
-					writer.write(line);
-					writer.write("\n");
+					a.append(indent)
+							.append("// ")
+							.append(line)
+							.append("\n");
 				}
 			}
 			
-			writer.write(indent);
+			a.append(indent);
 			if(quoteKeys)
-				writer.write('"');
-			writer.write(key);
+				a.append('"');
+			a.append(key);
 			if(quoteKeys)
-				writer.write('"');
-			writer.write(": ");
-			writer.write(value(zv.value));
-			writer.write(",\n");
+				a.append('"');
+			a.append(": ");
+			a.append(value(zv.value));
+			a.append(",\n");
 		}
 		
-		writer.write("}");
-		writer.flush();
+		a.append("}");
 	}
 	
 	private String value(Object value) {

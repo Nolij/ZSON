@@ -3,16 +3,17 @@ import dev.nolij.zson.ZsonParser;
 import dev.nolij.zson.ZsonWriter;
 import dev.nolij.zson.ZsonValue;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class Main {
 	public static void main(String[] args) throws Throwable {
-		ZsonWriter writer = new ZsonWriter().withExpandArrays(false).withIndent("  ").withQuoteKeys(true);
-		Map<String, ZsonValue> zsonMap = new LinkedHashMap<>();
+		ZsonWriter writer = new ZsonWriter()
+				.withExpandArrays(false)
+				.withIndent("  ")
+				.withQuoteKeys(true);
+
+		Map<String, ZsonValue> zsonMap = Zson.object();
 		zsonMap.put("name", new ZsonValue("The name of the person\nlook, a second line!", "John Doe"));
 		zsonMap.put("age", new ZsonValue("The age of the person", 30));
 		zsonMap.put("address",  new ZsonValue("The address of the person", Zson.object(
@@ -26,7 +27,7 @@ public class Main {
 			Zson.entry("cell", "217-555-5678")
 		)));
 		String json = writer.stringify(zsonMap);
-		writer.write(zsonMap, Files.newBufferedWriter(Paths.get("person.json5"), StandardCharsets.UTF_8));
+		writer.write(zsonMap, Paths.get("person.json5"));
 		System.out.println(json);
 
 		Map<String, ZsonValue> parsed = ZsonParser.parseString(json);
@@ -39,7 +40,7 @@ public class Main {
 			System.out.println("not equal");
 		}
 
-		Map<String, ZsonValue> map = new LinkedHashMap<>();
+		Map<String, ZsonValue> map = Zson.object();
 		map.put("arr", new ZsonValue("look, an array", Zson.array(1, 2, 3)));
 		map.put("obj", new ZsonValue("look, an object", Zson.object(
 			Zson.entry("a", 1),
@@ -56,7 +57,7 @@ public class Main {
 		String json2 = writer.stringify(map);
 
 		System.out.println(json2);
-		writer.write(map, Files.newBufferedWriter(Paths.get("test.json5"), StandardCharsets.UTF_8));
+		writer.write(map, Paths.get("test.json5"));
 //		ZsonParser.parseString(json2);
 	}
 }

@@ -6,7 +6,6 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -72,7 +71,7 @@ public final class ZsonParser {
 	}
 
 	private static Map<String, ZsonValue> parseObject(Reader r) throws IOException {
-		Map<String, ZsonValue> map = new LinkedHashMap<>();
+		Map<String, ZsonValue> map = Zson.object();
 		boolean comma = false;
 		boolean colon = false;
 		String key = null;
