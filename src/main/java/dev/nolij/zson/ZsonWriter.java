@@ -3,34 +3,25 @@ package dev.nolij.zson;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.util.AbstractMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 public final class ZsonWriter {
 
-	public static final String DEFAULT_INDENT = "  ";
+	public String indent = "  ";
+	public boolean expandArrays = false;
+	public boolean quoteKeys = true;
 
-	public static String stringify(Map<String, ZsonValue> zson, String indent) {
+	public String stringify(Map<String, ZsonValue> zson) {
 		StringWriter writer = new StringWriter();
 		try {
-			write(zson, writer, indent);
+			write(zson, writer);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 		return writer.toString();
 	}
-
-	public static String stringify(Map<String, ZsonValue> zson) {
-		return stringify(zson, DEFAULT_INDENT);
-	}
-
-	public static void write(Map<String, ZsonValue> zson, Writer writer) throws IOException {
-		write(zson, writer, DEFAULT_INDENT);
-	}
 	
-	public static void write(Map<String, ZsonValue> zson, Writer writer, String indent) throws IOException {
+	public void write(Map<String, ZsonValue> zson, Writer writer) throws IOException {
 		writer.write("{\n");
 		
 		for (var entry : zson.entrySet()) {
@@ -48,10 +39,13 @@ public final class ZsonWriter {
 			}
 			
 			writer.write(indent);
-			writer.write('"');
+			if(quoteKeys)
+				writer.write('"');
 			writer.write(key);
-			writer.write("\": ");
-			writer.write(value(zv.value, indent));
+			if(quoteKeys)
+				writer.write('"');
+			writer.write(": ");
+			writer.write(value(zv.value));
 			writer.write(",\n");
 		}
 		
@@ -59,11 +53,11 @@ public final class ZsonWriter {
 		writer.flush();
 	}
 	
-	private static String value(Object value, String indent) {
+	private String value(Object value) {
 		if(value instanceof Map<?, ?>) {
 			try {
 				//noinspection unchecked
-				return stringify((Map<String, ZsonValue>) value, indent).replace("\n", "\n" + indent);
+				return stringify((Map<String, ZsonValue>) value).replace("\n", "\n" + indent);
 			} catch (ClassCastException e) {
 				if(e.getMessage().contains("cannot be cast to")) {
 					//TODO: better error message (currently just prints "got path.to.MapClass" without type parameters)
@@ -76,27 +70,38 @@ public final class ZsonWriter {
 				throw new StackOverflowError("Map is circular");
 			}
 		} else if(value instanceof String s) {
-			return '"' + Strings.escape(s, '"') + '"';
+			return '"' + Zson.escape(s, '"') + '"';
 		} else if(value instanceof Number || value instanceof Boolean || value == null) {
 			return String.valueOf(value);
+		} else if(value instanceof Iterable<?> l) {
+			StringBuilder sb = new StringBuilder("[");
+			sb.append(expandArrays ? "\n" : " ");
+			for (Object o : l) {
+				if(expandArrays)
+					sb.append(indent).append(indent);
+				sb.append(value(o).replace("\n", "\n" + indent + indent))
+						.append(",")
+						.append(expandArrays ? "\n" : " ");
+			}
+			if(expandArrays)
+				sb.append(indent);
+			return sb.append("]").toString();
 		}
 		throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getName());
 	}
-	
-	public static Map.Entry<String, ZsonValue> entry(String key, String comment, Object value) {
-		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(comment, value));
+
+	public ZsonWriter withIndent(String indent) {
+		this.indent = indent;
+		return this;
 	}
-	
-	public static Map.Entry<String, ZsonValue> entry(String key, Object value) {
-		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(value));
+
+	public ZsonWriter withExpandArrays(boolean expandArrays) {
+		this.expandArrays = expandArrays;
+		return this;
 	}
-	
-	@SafeVarargs
-	public static Map<String, ZsonValue> object(Map.Entry<String, ZsonValue>... entries) {
-		Map<String, ZsonValue> map = new LinkedHashMap<>();
-		for(Entry<String, ZsonValue> e : entries) {
-			map.put(e.getKey(), e.getValue());
-		}
-		return map;
+
+	public ZsonWriter withQuoteKeys(boolean quoteKeys) {
+		this.quoteKeys = quoteKeys;
+		return this;
 	}
 }

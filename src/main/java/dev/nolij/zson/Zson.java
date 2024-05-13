@@ -1,6 +1,38 @@
 package dev.nolij.zson;
 
-public final class Strings {
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+public final class Zson {
+
+	public static Map.Entry<String, ZsonValue> entry(String key, String comment, Object value) {
+		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(comment, value));
+	}
+
+	public static Map.Entry<String, ZsonValue> entry(String key, Object value) {
+		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(value));
+	}
+
+	@SafeVarargs
+	public static Map<String, ZsonValue> object(Map.Entry<String, ZsonValue>... entries) {
+		Map<String, ZsonValue> map = new LinkedHashMap<>();
+		for(Entry<String, ZsonValue> e : entries) {
+			map.put(e.getKey(), e.getValue());
+		}
+		return map;
+	}
+
+	public static List<?> array(Object... values) {
+		List<Object> list = new ArrayList<>();
+		Collections.addAll(list, values);
+		return list;
+	}
+
 	public static String unescape(String string) {
 		if (string == null || string.isEmpty()) {
 			return string;
