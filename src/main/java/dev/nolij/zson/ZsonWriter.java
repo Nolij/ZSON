@@ -6,8 +6,11 @@ import java.io.Writer;
 import java.util.AbstractMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public final class ZsonWriter {
+
+	public static final String DEFAULT_INDENT = "  ";
 
 	public static String stringify(Map<String, ZsonValue> zson, String indent) {
 		StringWriter writer = new StringWriter();
@@ -17,6 +20,14 @@ public final class ZsonWriter {
 			throw new RuntimeException(e);
 		}
 		return writer.toString();
+	}
+
+	public static String stringify(Map<String, ZsonValue> zson) {
+		return stringify(zson, DEFAULT_INDENT);
+	}
+
+	public static void write(Map<String, ZsonValue> zson, Writer writer) throws IOException {
+		write(zson, writer, DEFAULT_INDENT);
 	}
 	
 	public static void write(Map<String, ZsonValue> zson, Writer writer, String indent) throws IOException {
@@ -49,20 +60,27 @@ public final class ZsonWriter {
 	}
 	
 	private static String value(Object value, String indent) {
-		if(value instanceof Map) {
+		if(value instanceof Map<?, ?>) {
 			try {
 				//noinspection unchecked
 				return stringify((Map<String, ZsonValue>) value, indent).replace("\n", "\n" + indent);
+			} catch (ClassCastException e) {
+				if(e.getMessage().contains("cannot be cast to")) {
+					//TODO: better error message (currently just prints "got path.to.MapClass" without type parameters)
+					throw new ClassCastException("expected Map<String, ZsonValue>, got " + value.getClass().getName());
+				} else {
+					throw e;
+				}
 			} catch (StackOverflowError e) {
+				// rethrow but without the recursive cause
 				throw new StackOverflowError("Map is circular");
 			}
 		} else if(value instanceof String s) {
 			return '"' + Strings.escape(s, '"') + '"';
 		} else if(value instanceof Number || value instanceof Boolean || value == null) {
 			return String.valueOf(value);
-		} else {
-			throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getName());
 		}
+		throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getName());
 	}
 	
 	public static Map.Entry<String, ZsonValue> entry(String key, String comment, Object value) {
@@ -76,7 +94,7 @@ public final class ZsonWriter {
 	@SafeVarargs
 	public static Map<String, ZsonValue> object(Map.Entry<String, ZsonValue>... entries) {
 		Map<String, ZsonValue> map = new LinkedHashMap<>();
-		for(var e : entries) {
+		for(Entry<String, ZsonValue> e : entries) {
 			map.put(e.getKey(), e.getValue());
 		}
 		return map;

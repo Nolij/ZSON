@@ -23,24 +23,24 @@ public class Main {
 			ZsonWriter.entry("home", "217-555-1234"),
 			ZsonWriter.entry("cell", "217-555-5678")
 		)));
-		String json = ZsonWriter.stringify(zsonMap, "  ");
-		ZsonWriter.write(zsonMap, Files.newBufferedWriter(Paths.get("person.json5"), StandardCharsets.UTF_8), "  ");
+		String json = ZsonWriter.stringify(zsonMap);
+		ZsonWriter.write(zsonMap, Files.newBufferedWriter(Paths.get("person.json5"), StandardCharsets.UTF_8));
 		System.out.println(json);
 
-		Map<String, ZsonValue> parsed = (Map<String, ZsonValue>) ZsonParser.parseString(json);
+		Map<String, ZsonValue> parsed = ZsonParser.parseString(json);
 
 		System.out.println(zsonMap);
 		System.out.println(parsed);
-		if(!zsonMap.equals(parsed)) {
-			System.out.println("not equal");
-		} else {
+		if(zsonMap.equals(parsed)) {
 			System.out.println("equal!");
+		} else {
+			System.out.println("not equal");
 		}
-		
-//		Map<String, ZsonValue> map2 = new LinkedHashMap<>();
-//		Map<String, ZsonValue> map3 = new LinkedHashMap<>();
-//		map3.put("test", new ZsonValue("a", map2));
-//		map2.put("test", new ZsonValue("b", map3));
-//		System.out.println(zson.stringify(map2));
+
+		Map<String, ZsonValue> map2 = new LinkedHashMap<>();
+		Map<Integer, Integer> what = new LinkedHashMap<>();
+		what.put(1, 2);
+		map2.put("test", new ZsonValue(what));
+		ZsonWriter.stringify(map2);
 	}
 }

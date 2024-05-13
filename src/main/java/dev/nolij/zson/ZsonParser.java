@@ -12,7 +12,7 @@ import java.util.Map;
 
 public final class ZsonParser {
 
-    public static Object parseString(String str) throws IOException {
+    public static <T> T parseString(String str) throws IOException {
         return parse(new BufferedReader(new StringReader(str)));
     }
 
@@ -25,7 +25,8 @@ public final class ZsonParser {
 	 * 		     - Boolean
 	 * 		     - null
 	 */
-	public static Object parse(Reader r) throws IOException {
+	@SuppressWarnings("unchecked")
+	public static <T> T parse(Reader r) throws IOException {
         while (true) {
             if (skipWhitespace(r)) {
                 continue;
@@ -40,16 +41,16 @@ public final class ZsonParser {
             }
 	        switch (c) {
 		        case '{' -> {
-			        return parseObject(r);
+			        return (T) parseObject(r);
 		        }
 		        case '[' -> {
-			        return parseArray(r);
+			        return (T) parseArray(r);
 		        }
 		        case '"', '\'' -> {
-			        return Strings.unescape(parseString(r, (char) c));
+			        return (T) Strings.unescape(parseString(r, (char) c));
 		        }
 		        case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'N', 'I' -> {
-			        return parseNumber(r, (char) c);
+			        return (T) parseNumber(r, (char) c);
 		        }
 		        case 'n' -> {
 			        char[] chars = new char[3];
