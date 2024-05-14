@@ -8,7 +8,7 @@ import java.util.Map;
 
 public final class ZsonWriter {
 
-	public String indent = "  ";
+	public String indent = "\t";
 	public boolean expandArrays = false;
 	public boolean quoteKeys = true;
 
