@@ -40,9 +40,9 @@ public final class ZsonWriter {
 			if (comment != null) {
 				for (String line : comment.split("\n")) {
 					a.append(indent)
-							.append("// ")
-							.append(line)
-							.append("\n");
+					 .append("// ")
+					 .append(line)
+					 .append("\n");
 				}
 			}
 			
@@ -52,9 +52,7 @@ public final class ZsonWriter {
 			a.append(key);
 			if(quoteKeys)
 				a.append('"');
-			a.append(": ");
-			a.append(value(zv.value));
-			a.append(",\n");
+			a.append(": ").append(value(zv.value)).append(",\n");
 		}
 		
 		a.append("}");

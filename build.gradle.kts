@@ -7,7 +7,7 @@ operator fun String.invoke(): String = rootProject.properties[this] as? String ?
 
 group = "maven_group"()
 version = "project_version"()
-base.archivesName = "zson"
+base.archivesName = rootProject.name.lowercase()
 
 repositories {
     mavenCentral()
@@ -18,6 +18,12 @@ dependencies {
     "com.pkware.jabel:jabel-javac-plugin:${"jabel_version"()}".also {
         annotationProcessor(it)
         compileOnly(it)
+    }
+}
+
+tasks.jar {
+    from(rootProject.file("LICENSE")) {
+        rename { "${it}_${rootProject.name}" }
     }
 }
 
