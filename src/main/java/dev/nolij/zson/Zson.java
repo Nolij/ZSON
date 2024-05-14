@@ -15,7 +15,7 @@ public final class Zson {
 
 	@SafeVarargs
 	public static Map<String, ZsonValue> object(Map.Entry<String, ZsonValue>... entries) {
-		Map<String, ZsonValue> map = new HashMap<>();
+		Map<String, ZsonValue> map = new LinkedHashMap<>();
 		for (Entry<String, ZsonValue> e : entries) {
 			map.put(e.getKey(), e.getValue());
 		}

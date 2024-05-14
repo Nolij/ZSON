@@ -28,6 +28,6 @@ public final class ZsonValue {
 	@Override
 	public String toString() {
 		// TODO: maybe the comment should be added here too
-		return value.toString();
+		return String.valueOf(value);
 	}
 }

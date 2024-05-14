@@ -15,10 +15,7 @@ repositories {
 
 dependencies {
     compileOnly("org.jetbrains:annotations:${"jetbrains_annotations_version"()}")
-    "com.pkware.jabel:jabel-javac-plugin:${"jabel_version"()}".also {
-        annotationProcessor(it)
-        compileOnly(it)
-    }
+    compileOnly("com.pkware.jabel:jabel-javac-plugin:${"jabel_version"()}", ::annotationProcessor)
 }
 
 tasks.jar {

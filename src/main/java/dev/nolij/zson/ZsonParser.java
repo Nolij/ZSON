@@ -6,25 +6,24 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-
-// TODO: Add support for:
-//   - hex/octal/binary numbers
-//   - unquoted keys (writer can optionally output these)
-//   - multi-line strings?
-//   - trailing commas (important! writer always outputs these)
 public final class ZsonParser {
 
-	public static <T> T parseString(String serialized) throws IOException {
-		return parse(new BufferedReader(new StringReader(serialized)));
+	public static <T> T parseString(String serialized) {
+		try {
+			return parse(new BufferedReader(new StringReader(serialized)));
+		} catch (IOException e) {
+			throw new IllegalArgumentException(e);
+		}
 	}
 
 	/**
 	 * @return One of:
-	 * - Map<String, ZsonValue>
-	 * - List<ZsonValue>
+	 * - Map<String, ZsonValue> (object)
+	 * - List<Object> (array)
 	 * - String
 	 * - Number
 	 * - Boolean
@@ -32,6 +31,10 @@ public final class ZsonParser {
 	 */
 	@SuppressWarnings("unchecked")
 	public static <T> T parse(Reader input) throws IOException {
+		if(!input.markSupported()) {
+			input = new BufferedReader(input);
+		}
+
 		while (true) {
 			if (skipWhitespace(input) || skipComment(input))
 				continue;
@@ -51,7 +54,10 @@ public final class ZsonParser {
 				case '"', '\'' -> {
 					return (T) Zson.unescape(parseString(input, (char) ch));
 				}
-				case '-', '+', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'N', 'I' -> {
+				case '-', '+', 'N', 'I',
+					 '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+					 'a', 'b', 'c', 'd', 'e', 'f',
+					 'A', 'B', 'C', 'D', 'E', 'F' -> {
 					return (T) parseNumber(input, (char) ch);
 				}
 				case 'n' -> {
@@ -87,7 +93,7 @@ public final class ZsonParser {
 
 			if (comma) {
 				if (ch != ',')
-					throw new IllegalArgumentException("Expected comma");
+					throw new IllegalArgumentException("Expected comma, got " + (char) ch);
 
 				comma = false;
 				continue;
@@ -95,7 +101,7 @@ public final class ZsonParser {
 
 			if (colon) {
 				if (ch != ':')
-					throw new IllegalArgumentException("Expected colon");
+					throw new IllegalArgumentException("Expected colon, got " + (char) ch);
 
 				colon = false;
 				continue;
@@ -126,9 +132,9 @@ public final class ZsonParser {
 		}
 	}
 
-	private static List<ZsonValue> parseArray(Reader input) {
-		List<ZsonValue> list = new ArrayList<>();
-		var comma = false;
+	private static List<Object> parseArray(Reader input) {
+		var list = new ArrayList<>();
+		boolean comma = false;
 
 		while (true) {
 			try {
@@ -142,7 +148,7 @@ public final class ZsonParser {
 
 				if (comma) {
 					if (ch != ',')
-						throw new IllegalArgumentException("Expected comma");
+						throw new IllegalArgumentException("Expected comma, got " + (char) ch);
 
 					comma = false;
 					continue;
@@ -153,7 +159,7 @@ public final class ZsonParser {
 
 				input.reset();
 				Object value = parse(input);
-				list.add(new ZsonValue(value));
+				list.add(value);
 				comma = true;
 			} catch (IOException e) {
 				throw new IllegalArgumentException(e);
@@ -162,7 +168,7 @@ public final class ZsonParser {
 	}
 
 	private static String parseString(Reader input, char start) throws IOException {
-		var escapes = 0;
+		int escapes = 0;
 		var output = new StringBuilder();
 		int c;
 
@@ -222,9 +228,6 @@ public final class ZsonParser {
 	}
 
 	private static Number parseNumber(Reader input, char start) throws IOException {
-		if(start == '+') {
-			start = (char) input.read();
-		}
 		switch (start) {
 			case '-' -> {
 				Number numberValue = parseNumber(input, (char) input.read());
@@ -240,56 +243,86 @@ public final class ZsonParser {
 			}
 			case 'N' -> {
 				char n = (char) input.read();
-				if (input.read() != 'a')
-					throw unexpected(n);
+				if (n != 'a') {
+					throw unexpected(n, 'a');
+				}
 
 				n = (char) input.read();
 				if (n != 'N')
-					throw unexpected(n);
+					throw unexpected(n, 'N');
 
 				return Float.NaN;
 			}
 			case 'I' -> {
 				char[] chars = new char[7];
-				if (input.read(chars) != 7 || "nfinity".equals(new String(chars)))
+				if ((input.read(chars) != 7))
+					throw unexpectedEOF();
+				if (!"nfinity".equals(new String(chars))) {
 					throw new IllegalArgumentException("Expected 'Infinity', got 'I" + new String(chars) + "'");
+				}
 
 				return Double.POSITIVE_INFINITY;
 			}
-			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
-				StringBuilder stringValueBuilder = new StringBuilder();
-				stringValueBuilder.append(start);
+			case '+', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
+				return parseDecimal(start, input);
+			}
 
-				int c;
-				input.mark(1);
-				while ((c = input.read()) != -1) {
-					if (Character.isDigit(c) || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-') {
-						input.mark(1);
-						stringValueBuilder.append(Character.toChars(c));
-					} else {
-						input.reset();
-						String stringValue = stringValueBuilder.toString();
-						if (stringValue.contains(".") || stringValue.contains("e") || stringValue.contains("E")) {
-							return Double.parseDouble(stringValue);
+			case '0' -> {
+				int c = input.read();
+				if (c == 'x' || c == 'X') {
+					StringBuilder hexValueBuilder = new StringBuilder();
+					input.mark(1);
+					while ((c = input.read()) != -1) {
+						if (Character.isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+							input.mark(1);
+							hexValueBuilder.append(Character.toChars(c));
 						} else {
-							try {
-								return Integer.parseInt(stringValue);
-							} catch (NumberFormatException e) {
-								try {
-									return Long.parseLong(stringValue);
-								} catch (NumberFormatException e2) {
-									return new BigInteger(stringValue);
-								}
-							}
+							input.reset();
+							return Integer.parseInt(hexValueBuilder.toString(), 16);
 						}
 					}
-				}
 
-				throw unexpectedEOF();
+					throw unexpectedEOF();
+				} else {
+					return parseDecimal('0', input);
+				}
 			}
 		}
 
 		throw unexpected(start);
+	}
+
+	private static Number parseDecimal(char c, Reader input) throws IOException {
+		StringBuilder stringValueBuilder = new StringBuilder();
+		stringValueBuilder.append(c);
+
+		int ch;
+		input.mark(1);
+		while ((ch = input.read()) != -1) {
+			if (Character.isDigit(ch) || ch == '.' || ch == 'e' || ch == 'E' || ch == '+' || ch == '-') {
+				input.mark(1);
+				stringValueBuilder.append(Character.toChars(ch));
+			} else {
+				input.reset();
+				String stringValue = stringValueBuilder.toString();
+				if (stringValue.contains(".") || stringValue.contains("e") || stringValue.contains("E")) {
+					return Double.parseDouble(stringValue);
+				}
+
+				Number number = null;
+				try {
+					BigInteger bigIntValue = new BigInteger(stringValue);
+					number = bigIntValue;
+					number = bigIntValue.longValueExact();
+					number = bigIntValue.intValueExact();
+				} catch (ArithmeticException ignored) {
+				}
+
+				return number;
+			}
+		}
+
+		throw unexpectedEOF();
 	}
 
 	private static boolean skipWhitespace(Reader input) throws IOException {
@@ -337,8 +370,12 @@ public final class ZsonParser {
 		return false;
 	}
 
-	private static IllegalArgumentException unexpected(int ch) {
-		return new IllegalArgumentException("Unexpected character: " + (char) ch);
+	private static IllegalArgumentException unexpected(int ch, char... expected) {
+		String message = "Unexpected character: " + (char) ch;
+		if(expected.length > 0) {
+			message += "\nExpected one of: " + Arrays.toString(expected);
+		}
+		return new IllegalArgumentException(message);
 	}
 
 	private static IllegalArgumentException unexpectedEOF() {
