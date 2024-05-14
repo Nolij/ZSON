@@ -6,7 +6,6 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -243,13 +242,9 @@ public final class ZsonParser {
 			}
 			case 'N' -> {
 				int n = input.read();
-				if (n != 'a') {
-					throw unexpected(n, 'a');
+				if (n != 'a' || (n = input.read()) != 'N') {
+					throw unexpected(n);
 				}
-
-				n = (char) input.read();
-				if (n != 'N')
-					throw unexpected(n, 'N');
 
 				return Float.NaN;
 			}
@@ -370,12 +365,8 @@ public final class ZsonParser {
 		return false;
 	}
 
-	private static IllegalArgumentException unexpected(int ch, char... expected) {
-		String message = "Unexpected character: " + (char) ch;
-		if(expected.length > 0) {
-			message += "\nExpected one of: " + Arrays.toString(expected);
-		}
-		return new IllegalArgumentException(message);
+	private static IllegalArgumentException unexpected(int ch) {
+		return new IllegalArgumentException("Unexpected character: " + (char) ch);
 	}
 
 	private static IllegalArgumentException unexpectedEOF() {
