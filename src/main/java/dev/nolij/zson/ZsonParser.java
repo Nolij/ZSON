@@ -242,7 +242,7 @@ public final class ZsonParser {
 				}
 			}
 			case 'N' -> {
-				char n = (char) input.read();
+				int n = input.read();
 				if (n != 'a') {
 					throw unexpected(n, 'a');
 				}
