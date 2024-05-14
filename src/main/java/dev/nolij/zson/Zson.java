@@ -1,11 +1,6 @@
 package dev.nolij.zson;
 
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
 
 public final class Zson {
@@ -20,8 +15,8 @@ public final class Zson {
 
 	@SafeVarargs
 	public static Map<String, ZsonValue> object(Map.Entry<String, ZsonValue>... entries) {
-		Map<String, ZsonValue> map = new LinkedHashMap<>();
-		for(Entry<String, ZsonValue> e : entries) {
+		Map<String, ZsonValue> map = new HashMap<>();
+		for (Entry<String, ZsonValue> e : entries) {
 			map.put(e.getKey(), e.getValue());
 		}
 		return map;
@@ -30,26 +25,27 @@ public final class Zson {
 	public static List<?> array(Object... values) {
 		List<Object> list = new ArrayList<>();
 		Collections.addAll(list, values);
+		
 		return list;
 	}
 
 	public static String unescape(String string) {
-		if (string == null || string.isEmpty()) {
+		if (string == null || string.isEmpty())
 			return string;
-		}
-
-		char[] chars = string.toCharArray();
-		int j = 0;
+		
+		var chars = string.toCharArray();
+		var j = 0;
 		for (int i = 0; i < chars.length; i++) {
 			char c = chars[i];
+			
 			if (c != '\\') {
 				chars[j++] = c;
 				continue;
 			}
-			if(i + 1 >= chars.length) {
+			
+			if (i + 1 >= chars.length)
 				throw new IllegalArgumentException("Invalid escape sequence: \\EOS");
-			}
-
+			
 			char d = chars[++i];
 			c = switch (d) {
 				case 'b' -> '\b';
@@ -88,9 +84,8 @@ public final class Zson {
 	}
 
 	public static String escape(String string, char escapeQuotes) {
-		if(string == null || string.isEmpty()) {
+		if (string == null || string.isEmpty())
 			return string;
-		}
 
 		final StringBuilder result = new StringBuilder(string.length());
 		for (int i = 0; i < string.length(); i++) {
@@ -128,6 +123,7 @@ public final class Zson {
 				}
 			}
 		}
+		
 		return result.toString();
 	}
 }
