@@ -17,8 +17,8 @@ import java.util.Map;
 //   - trailing commas (important! writer always outputs these)
 public final class ZsonParser {
 
-	public static <T> T parseString(String str) throws IOException {
-		return parse(new BufferedReader(new StringReader(str)));
+	public static <T> T parseString(String serialized) throws IOException {
+		return parse(new BufferedReader(new StringReader(serialized)));
 	}
 
 	/**
@@ -31,92 +31,94 @@ public final class ZsonParser {
 	 * - null
 	 */
 	@SuppressWarnings("unchecked")
-	public static <T> T parse(Reader r) throws IOException {
-		while(true) {
-			if(skipWhitespace(r)) {
+	public static <T> T parse(Reader input) throws IOException {
+		while (true) {
+			if (skipWhitespace(input) || skipComment(input))
 				continue;
-			}
-			if(skipComment(r)) {
-				continue;
-			}
 
-			int c = r.read();
-			if(c == -1) {
+			int ch = input.read();
+			if (ch == -1) {
 				throw unexpectedEOF();
 			}
-			switch(c) {
+
+			switch (ch) {
 				case '{' -> {
-					return (T) parseObject(r);
+					return (T) parseObject(input);
 				}
 				case '[' -> {
-					return (T) parseArray(r);
+					return (T) parseArray(input);
 				}
 				case '"', '\'' -> {
-					return (T) Zson.unescape(parseString(r, (char) c));
+					return (T) Zson.unescape(parseString(input, (char) ch));
 				}
 				case '-', '+', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'N', 'I' -> {
-					return (T) parseNumber(r, (char) c);
+					return (T) parseNumber(input, (char) ch);
 				}
 				case 'n' -> {
 					char[] chars = new char[3];
-					if(r.read(chars) == 3 && chars[0] == 'u' && chars[1] == 'l' && chars[2] == 'l') {
+					if (input.read(chars) == 3 && chars[0] == 'u' && chars[1] == 'l' && chars[2] == 'l') {
 						return null;
 					} else {
 						throw new IllegalArgumentException("Expected 'null', got 'n" + new String(chars) + "'");
 					}
 				}
 			}
-			throw unexpected(c);
+
+			throw unexpected(ch);
 		}
 	}
 
-	private static Map<String, ZsonValue> parseObject(Reader r) throws IOException {
-		Map<String, ZsonValue> map = Zson.object();
-		boolean comma = false;
-		boolean colon = false;
-		String key = null;
-		while(true) {
-			if(skipWhitespace(r) || skipComment(r)) {
-				continue;
-			}
+	private static Map<String, ZsonValue> parseObject(Reader input) throws IOException {
+		var map = Zson.object();
 
-			r.mark(1);
-			int c = r.read();
-			if(c == '}') {
+		var comma = false;
+		var colon = false;
+		String key = null;
+
+		while (true) {
+			if (skipWhitespace(input) || skipComment(input))
+				continue;
+
+			input.mark(1);
+			int ch = input.read();
+
+			if (ch == '}')
 				return map;
-			}
-			if(comma) {
-				if(c != ',') {
+
+			if (comma) {
+				if (ch != ',')
 					throw new IllegalArgumentException("Expected comma");
-				}
+
 				comma = false;
 				continue;
 			}
-			if(colon) {
-				if(c != ':') {
+
+			if (colon) {
+				if (ch != ':')
 					throw new IllegalArgumentException("Expected colon");
-				}
+
 				colon = false;
 				continue;
 			}
-			if(c == -1) {
+
+			if (ch == -1)
 				throw unexpectedEOF();
-			}
-			if(key == null) {
-				key = switch(c) {
-					case '"', '\'' -> Zson.unescape(parseString(r, (char) c));
+
+			if (key == null) {
+				key = switch (ch) {
+					case '"', '\'' -> Zson.unescape(parseString(input, (char) ch));
 					default -> {
-						if(Character.isLetter(c) || c == '_' || c == '$' || c == '\\') {
-							yield parseIdentifier(r, (char) c);
+						if (Character.isLetter(ch) || ch == '_' || ch == '$' || ch == '\\') {
+							yield parseIdentifier(input, (char) ch);
 						} else {
-							throw unexpected(c);
+							throw unexpected(ch);
 						}
 					}
 				};
 				colon = true;
 			} else {
-				r.reset();
-				Object value = parse(r);
+				input.reset();
+				Object value = parse(input);
 				map.put(key, new ZsonValue(value));
 				key = null;
 				comma = true;
@@ -124,36 +126,33 @@ public final class ZsonParser {
 		}
 	}
 
-	private static List<ZsonValue> parseArray(Reader r) {
+	private static List<ZsonValue> parseArray(Reader input) {
 		List<ZsonValue> list = new ArrayList<>();
-		boolean comma = false;
-		while(true) {
+		var comma = false;
+
+		while (true) {
 			try {
-				if(skipWhitespace(r)) {
+				if (skipWhitespace(input) || skipComment(input))
 					continue;
-				}
-				if(skipComment(r)) {
+
+				input.mark(1);
+				int ch = input.read();
+				if (ch == ']')
+					return list;
+
+				if (comma) {
+					if (ch != ',')
+						throw new IllegalArgumentException("Expected comma");
+
+					comma = false;
 					continue;
 				}
 
-				r.mark(1);
-				int c = r.read();
-				if(c == ']') {
-					return list;
-				}
-				if(comma) {
-					if(c != ',') {
-						throw new IllegalArgumentException("Expected comma");
-					} else {
-						comma = false;
-						continue;
-					}
-				}
-				if(c == -1) {
+				if (ch == -1)
 					throw unexpectedEOF();
-				}
-				r.reset();
-				Object value = parse(r);
+
+				input.reset();
+				Object value = parse(input);
 				list.add(new ZsonValue(value));
 				comma = true;
 			} catch (IOException e) {
@@ -162,171 +161,184 @@ public final class ZsonParser {
 		}
 	}
 
-	private static String parseString(Reader r, char start) throws IOException {
-		int escapes = 0;
-		StringBuilder sb = new StringBuilder();
+	private static String parseString(Reader input, char start) throws IOException {
+		var escapes = 0;
+		var output = new StringBuilder();
 		int c;
-		while((c = r.read()) != -1) {
-			if(c == start) {
-				if(escapes == 0) {
-					return sb.toString();
-				}
-				sb.append(Character.toChars(c));
+
+		while ((c = input.read()) != -1) {
+			if (c == start) {
+				if (escapes == 0)
+					return output.toString();
+
+				output.append(Character.toChars(c));
 				escapes--;
 			}
-			if(c == '\n') {
-				if(escapes == 0) {
+
+			if (c == '\n') {
+				if (escapes == 0)
 					throw new IllegalArgumentException("Unexpected newline");
-				}
+
 				escapes = 0;
-				sb.append('\n');
+				output.append('\n');
 				continue;
 			}
-			if(c == '\\') {
+
+			if (c == '\\') {
 				escapes++;
-				if(escapes == 2) {
-					sb.append('\\');
+				if (escapes == 2) {
+					output.append('\\');
 					escapes = 0;
 				}
 			} else {
-				if(escapes == 1) {
-					sb.append('\\');
+				if (escapes == 1) {
+					output.append('\\');
 				}
-				sb.append(Character.toChars(c));
+				output.append(Character.toChars(c));
 				escapes = 0;
 			}
 		}
 		throw unexpectedEOF();
 	}
 
-	private static String parseIdentifier(Reader r, char start) throws IOException {
-		StringBuilder sb = new StringBuilder();
-		sb.append(start);
+	private static String parseIdentifier(Reader input, char start) throws IOException {
+		var output = new StringBuilder();
+		output.append(start);
+
 		int c;
-		r.mark(1);
-		while((c = r.read()) != -1) {
+		input.mark(1);
+		while ((c = input.read()) != -1) {
 			// TODO: verify this works properly... https://262.ecma-international.org/5.1/#sec-7.6
-			if(!Character.isWhitespace(c)) {
-				r.mark(1);
-				sb.append(Character.toChars(c));
+			if (!Character.isWhitespace(c)) {
+				input.mark(1);
+				output.append(Character.toChars(c));
 			} else {
-				r.reset();
-				return sb.toString();
+				input.reset();
+				return output.toString();
 			}
 		}
+
 		throw unexpectedEOF();
 	}
 
-	private static Number parseNumber(Reader r, char start) throws IOException {
+	private static Number parseNumber(Reader input, char start) throws IOException {
 		if(start == '+') {
-			start = (char) r.read();
+			start = (char) input.read();
 		}
-		switch(start) {
+		switch (start) {
 			case '-' -> {
-				Number n = parseNumber(r, (char) r.read());
-				if(n instanceof Double d) {
-					return -d;
-				} else if(n instanceof Long l) {
-					return -l;
-				} else if(n instanceof BigInteger b) {
-					return b.negate();
+				Number numberValue = parseNumber(input, (char) input.read());
+				if (numberValue instanceof Double doubleValue) {
+					return -doubleValue;
+				} else if (numberValue instanceof Long longValue) {
+					return -longValue;
+				} else if (numberValue instanceof BigInteger bigIntValue) {
+					return bigIntValue.negate();
 				} else {
-					return -((Integer) n);
+					return -((Integer) numberValue);
 				}
 			}
 			case 'N' -> {
-				char n = (char) r.read();
-				if(r.read() != 'a') throw unexpected(n);
-				n = (char) r.read();
-				if(n != 'N') throw unexpected(n);
+				char n = (char) input.read();
+				if (input.read() != 'a')
+					throw unexpected(n);
+
+				n = (char) input.read();
+				if (n != 'N')
+					throw unexpected(n);
+
 				return Float.NaN;
 			}
 			case 'I' -> {
 				char[] chars = new char[7];
-				if(r.read(chars) != 7 || "nfinity".equals(new String(chars)))
+				if (input.read(chars) != 7 || "nfinity".equals(new String(chars)))
 					throw new IllegalArgumentException("Expected 'Infinity', got 'I" + new String(chars) + "'");
+
 				return Double.POSITIVE_INFINITY;
 			}
 			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
-				StringBuilder sb = new StringBuilder();
-				sb.append(start);
+				StringBuilder stringValueBuilder = new StringBuilder();
+				stringValueBuilder.append(start);
+
 				int c;
-				r.mark(1);
-				while((c = r.read()) != -1) {
-					if(Character.isDigit(c) || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-') {
-						r.mark(1);
-						sb.append(Character.toChars(c));
+				input.mark(1);
+				while ((c = input.read()) != -1) {
+					if (Character.isDigit(c) || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-') {
+						input.mark(1);
+						stringValueBuilder.append(Character.toChars(c));
 					} else {
-						r.reset();
-						String s = sb.toString();
-						if(s.contains(".") || s.contains("e") || s.contains("E")) {
-							return Double.parseDouble(s);
+						input.reset();
+						String stringValue = stringValueBuilder.toString();
+						if (stringValue.contains(".") || stringValue.contains("e") || stringValue.contains("E")) {
+							return Double.parseDouble(stringValue);
 						} else {
 							try {
-								return Integer.parseInt(s);
+								return Integer.parseInt(stringValue);
 							} catch (NumberFormatException e) {
 								try {
-									return Long.parseLong(s);
+									return Long.parseLong(stringValue);
 								} catch (NumberFormatException e2) {
-									return new BigInteger(s);
+									return new BigInteger(stringValue);
 								}
 							}
 						}
 					}
 				}
+
 				throw unexpectedEOF();
 			}
 		}
+
 		throw unexpected(start);
 	}
 
-	private static boolean skipWhitespace(Reader br) throws IOException {
-		br.mark(1);
+	private static boolean skipWhitespace(Reader input) throws IOException {
+		input.mark(1);
 		int c;
-		int skipped = 0;
-		while((c = br.read()) != -1) {
-			if(!Character.isWhitespace(c)) {
-				br.reset();
+		var skipped = 0;
+		while ((c = input.read()) != -1) {
+			if (!Character.isWhitespace(c)) {
+				input.reset();
+
 				return skipped != 0;
 			}
+
 			skipped++;
-			br.mark(1);
+			input.mark(1);
 		}
+
 		throw unexpectedEOF();
 	}
 
-	private static boolean skipComment(Reader br) throws IOException {
-		br.mark(2);
-		int c = br.read();
-		if(c == '/') {
-			int c2 = br.read();
-			if(c2 == '/') {
-				while((c = br.read()) != -1) {
-					if(c == '\n') {
+	private static boolean skipComment(Reader input) throws IOException {
+		input.mark(2);
+		int c = input.read();
+		if (c == '/') {
+			int c2 = input.read();
+			if (c2 == '/') {
+				while ((c = input.read()) != -1)
+					if (c == '\n')
 						break;
-					}
-				}
+
 				return true;
-			} else if(c2 == '*') {
-				while((c = br.read()) != -1) {
-					if(c == '*') {
-						if(br.read() == '/') {
-							return true;
-						}
-					}
-				}
+			} else if (c2 == '*') {
+				while ((c = input.read()) != -1)
+					if (c == '*' && input.read() == '/')
+						return true;
+
 				throw unexpectedEOF();
 			} else {
-				br.reset();
+				input.reset();
 			}
 		} else {
-			br.reset();
+			input.reset();
 		}
+
 		return false;
 	}
 
-	private static IllegalArgumentException unexpected(int c) {
-		return new IllegalArgumentException("Unexpected character: " + (char) c);
+	private static IllegalArgumentException unexpected(int ch) {
+		return new IllegalArgumentException("Unexpected character: " + (char) ch);
 	}
 
 	private static IllegalArgumentException unexpectedEOF() {
