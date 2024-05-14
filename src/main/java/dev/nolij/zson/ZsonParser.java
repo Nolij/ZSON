@@ -54,7 +54,7 @@ public final class ZsonParser {
 				case '"', '\'' -> {
 					return (T) Zson.unescape(parseString(r, (char) c));
 				}
-				case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'N', 'I' -> {
+				case '-', '+', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'N', 'I' -> {
 					return (T) parseNumber(r, (char) c);
 				}
 				case 'n' -> {
@@ -218,6 +218,9 @@ public final class ZsonParser {
 	}
 
 	private static Number parseNumber(Reader r, char start) throws IOException {
+		if(start == '+') {
+			start = (char) r.read();
+		}
 		switch(start) {
 			case '-' -> {
 				Number n = parseNumber(r, (char) r.read());
