@@ -17,6 +17,9 @@ repositories {
 dependencies {
     compileOnly("org.jetbrains:annotations:${"jetbrains_annotations_version"()}")
     compileOnly("com.pkware.jabel:jabel-javac-plugin:${"jabel_version"()}", ::annotationProcessor)
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.0-M1")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.jar {
@@ -25,9 +28,8 @@ tasks.jar {
     }
 }
 
-tasks.register<JavaExec>("testRun") {
-    mainClass = "Main"
-    classpath(sourceSets["test"].runtimeClasspath)
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks.withType<GenerateModuleMetadata> {

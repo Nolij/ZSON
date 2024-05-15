@@ -1,0 +1,126 @@
+import org.junit.jupiter.api.Test;
+
+import dev.nolij.zson.Zson;
+import dev.nolij.zson.ZsonParser;
+import dev.nolij.zson.ZsonValue;
+import dev.nolij.zson.ZsonWriter;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class ZsonTest {
+	@Test
+	public void testReadWrite() {
+		ZsonWriter writer = new ZsonWriter()
+				.withExpandArrays(false)
+				.withIndent("  ")
+				.withQuoteKeys(true);
+
+		Map<String, ZsonValue> zsonMap = Zson.object();
+		zsonMap.put("name", new ZsonValue("The name of the person\nlook, a second line!", "John Doe"));
+		zsonMap.put("age", new ZsonValue("The age of the person", 30));
+		zsonMap.put("address",  new ZsonValue("The address of the person", Zson.object(
+				Zson.entry("street", "The street of the address", "123 Main St"),
+				Zson.entry("city", "The city of the address", "Springfield"),
+				Zson.entry("state", "The state of the address", "IL"),
+				Zson.entry("zip", "The zip code of the address", 62701)
+		)));
+		zsonMap.put("phoneNumbers",  new ZsonValue("The phone numbers of the person", Zson.object(
+				Zson.entry("home", "217-555-1234"),
+				Zson.entry("cell", "217-555-5678")
+		)));
+		String json = writer.stringify(zsonMap);
+		System.out.println(json);
+
+		Map<String, ZsonValue> parsed = ZsonParser.parseString(json);
+
+		assertEquals(zsonMap, parsed);
+	}
+
+	@Test
+	public void testInvalidRead() {
+		assertThrows(IllegalArgumentException.class, () -> {
+			ZsonParser.parseString("wow look such invalid");
+		});
+	}
+
+	@Test
+	public void testRead() {
+		String json = """
+		{
+			"arr": [1, 2, 3],
+			"obj": {
+				"a": 1,
+				"b": "2",
+				"c": {
+					"d": 3,
+					"e": [4, 5, 6]
+				}
+			},
+			"str": "hello",
+			"num": 42,
+			"bool": true,
+			"nil": null,
+			"inf": Infinity,
+			"neginf": -Infinity,
+			"nan": NaN,
+			"multiline-string": "wow look\
+			a multiline string",
+		}
+		""";
+
+		Map<String, ZsonValue> map = ZsonParser.parseString(json);
+
+		assertEquals(1, ((List<Object>) map.get("arr").value).get(0));
+		assertEquals(2, ((List<Object>) map.get("arr").value).get(1));
+		assertEquals(3, ((List<Object>) map.get("arr").value).get(2));
+
+		Map<String, ZsonValue> obj = Zson.object(
+			Zson.entry("a", 1),
+			Zson.entry("b", "2"),
+			Zson.entry("c", Zson.object(
+				Zson.entry("d", 3),
+				Zson.entry("e", Zson.array(4, 5, 6))
+			))
+		);
+		assertEquals(obj, map.get("obj").value);
+
+		assertEquals("hello", map.get("str").value);
+		assertEquals(42, map.get("num").value);
+		assertEquals(true, map.get("bool").value);
+		assertNull(map.get("nil").value);
+		assertEquals(Double.POSITIVE_INFINITY, map.get("inf").value);
+		assertEquals(Double.NEGATIVE_INFINITY, map.get("neginf").value);
+		assertTrue(Double.isNaN((Double) map.get("nan").value));
+//		assertEquals("wow look \na multiline string", map.get("multiline-string").value);
+	}
+
+	@Test
+	public void testNumbers() {
+		String json = """
+		{
+			"int": 42,
+			"float": 3.14,
+			"exp": 6.022e23,
+			"neg": -1,
+			"hex": 0x2A,
+			"inf": Infinity,
+			"w": NaN,
+			"neginf": -Infinity,
+		}
+		""";
+
+		Map<String, ZsonValue> map = ZsonParser.parseString(json);
+
+		assertEquals(42, map.get("int").value);
+		assertEquals(3.14, map.get("float").value);
+		assertEquals(6.022e23, map.get("exp").value);
+		assertEquals(-1, map.get("neg").value);
+		assertEquals(42, map.get("hex").value);
+		assertEquals(Double.POSITIVE_INFINITY, map.get("inf").value);
+		assertTrue(Double.isNaN((Double) map.get("w").value));
+		assertEquals(Double.NEGATIVE_INFINITY, map.get("neginf").value);
+	}
+}

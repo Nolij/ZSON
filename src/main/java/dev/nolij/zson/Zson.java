@@ -126,4 +126,7 @@ public final class Zson {
 		
 		return result.toString();
 	}
+
+	private Zson() {
+	}
 }

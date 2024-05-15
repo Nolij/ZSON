@@ -5,11 +5,19 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public final class ZsonParser {
+
+	public static <T> T parseFile(Path path) throws IOException {
+		try(var reader = Files.newBufferedReader(path)) {
+			return parse(reader);
+		}
+	}
 
 	public static <T> T parseString(String serialized) {
 		try {
@@ -54,9 +62,7 @@ public final class ZsonParser {
 					return (T) Zson.unescape(parseString(input, (char) ch));
 				}
 				case '-', '+', 'N', 'I',
-					 '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-					 'a', 'b', 'c', 'd', 'e', 'f',
-					 'A', 'B', 'C', 'D', 'E', 'F' -> {
+					 '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
 					return (T) parseNumber(input, (char) ch);
 				}
 				case 'n' -> {
@@ -66,6 +72,9 @@ public final class ZsonParser {
 					} else {
 						throw new IllegalArgumentException("Expected 'null', got 'n" + new String(chars) + "'");
 					}
+				}
+				case 't', 'f' -> {
+					return (T) parseBoolean(input, (char) ch);
 				}
 			}
 
@@ -226,6 +235,24 @@ public final class ZsonParser {
 		throw unexpectedEOF();
 	}
 
+	private static Boolean parseBoolean(Reader input, char start) throws IOException {
+		if (start == 't') {
+			char[] chars = new char[3];
+			if (input.read(chars) == 3 && chars[0] == 'r' && chars[1] == 'u' && chars[2] == 'e') {
+				return true;
+			} else {
+				throw new IllegalArgumentException("Expected 'true', got 't" + new String(chars) + "'");
+			}
+		} else {
+			char[] chars = new char[4];
+			if (input.read(chars) == 4 && chars[0] == 'a' && chars[1] == 'l' && chars[2] == 's' && chars[3] == 'e') {
+				return false;
+			} else {
+				throw new IllegalArgumentException("Expected 'false', got 'f" + new String(chars) + "'");
+			}
+		}
+	}
+
 	private static Number parseNumber(Reader input, char start) throws IOException {
 		switch (start) {
 			case '-' -> {
@@ -246,7 +273,7 @@ public final class ZsonParser {
 					throw unexpected(n);
 				}
 
-				return Float.NaN;
+				return Double.NaN;
 			}
 			case 'I' -> {
 				char[] chars = new char[7];
