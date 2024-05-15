@@ -32,7 +32,33 @@ public class ZsonTest {
 				Zson.entry("cell", "217-555-5678")
 		)));
 		String json = writer.stringify(zsonMap);
-		System.out.println(json);
+
+		String expected = """
+		{
+		  // The name of the person
+		  // look, a second line!
+		  "name": "John Doe",
+		  // The age of the person
+		  "age": 30,
+		  // The address of the person
+		  "address": {
+		    // The street of the address
+		    "street": "123 Main St",
+		    // The city of the address
+		    "city": "Springfield",
+		    // The state of the address
+		    "state": "IL",
+		    // The zip code of the address
+		    "zip": 62701,
+		  },
+		  // The phone numbers of the person
+		  "phoneNumbers": {
+		    "home": "217-555-1234",
+		    "cell": "217-555-5678",
+		  },
+		}""";
+
+		assertEquals(expected, json);
 
 		Map<String, ZsonValue> parsed = ZsonParser.parseString(json);
 
@@ -109,8 +135,7 @@ public class ZsonTest {
 			"inf": Infinity,
 			"w": NaN,
 			"neginf": -Infinity,
-		}
-		""";
+		}""";
 
 		Map<String, ZsonValue> map = ZsonParser.parseString(json);
 
@@ -122,5 +147,17 @@ public class ZsonTest {
 		assertEquals(Double.POSITIVE_INFINITY, map.get("inf").value);
 		assertTrue(Double.isNaN((Double) map.get("w").value));
 		assertEquals(Double.NEGATIVE_INFINITY, map.get("neginf").value);
+
+		assertEquals("""
+		{
+			"int": 42,
+			"float": 3.14,
+			"exp": 6.022E23,
+			"neg": -1,
+			"hex": 42,
+			"inf": Infinity,
+			"w": NaN,
+			"neginf": -Infinity,
+		}""", new ZsonWriter().stringify(map));
 	}
 }
