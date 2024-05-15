@@ -1,6 +1,7 @@
 plugins {
     idea
     java
+    `maven-publish`
 }
 
 operator fun String.invoke(): String = rootProject.properties[this] as? String ?: error("Property $this not found")
@@ -39,5 +40,17 @@ tasks.withType<JavaCompile> {
     options.release = 8
     javaCompiler = javaToolchains.compilerFor {
         languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            artifact(tasks.jar)
+            artifactId = base.archivesName.get()
+        }
+    }
+    repositories {
+        mavenLocal()
     }
 }
