@@ -67,9 +67,7 @@ public class ZsonTest {
 
 	@Test
 	public void testInvalidRead() {
-		assertThrows(IllegalArgumentException.class, () -> {
-			ZsonParser.parseString("wow look such invalid");
-		});
+		assertThrows(IllegalArgumentException.class, () -> ZsonParser.parseString("wow look such invalid"));
 	}
 
 	@Test
@@ -99,9 +97,11 @@ public class ZsonTest {
 
 		Map<String, ZsonValue> map = ZsonParser.parseString(json);
 
-		assertEquals(1, ((List<Object>) map.get("arr").value).get(0));
-		assertEquals(2, ((List<Object>) map.get("arr").value).get(1));
-		assertEquals(3, ((List<Object>) map.get("arr").value).get(2));
+		@SuppressWarnings("unchecked")
+		List<Object> arr = (List<Object>) map.get("arr").value;
+		assertEquals(1, arr.get(0));
+		assertEquals(2, arr.get(1));
+		assertEquals(3, arr.get(2));
 
 		Map<String, ZsonValue> obj = Zson.object(
 			Zson.entry("a", 1),
@@ -120,7 +120,7 @@ public class ZsonTest {
 		assertEquals(Double.POSITIVE_INFINITY, map.get("inf").value);
 		assertEquals(Double.NEGATIVE_INFINITY, map.get("neginf").value);
 		assertTrue(Double.isNaN((Double) map.get("nan").value));
-//		assertEquals("wow look \na multiline string", map.get("multiline-string").value);
+		assertEquals("wow look \na multiline string", map.get("multiline-string").value);
 	}
 
 	@Test

@@ -290,6 +290,7 @@ public final class ZsonParser {
 			}
 
 			case '0' -> {
+				input.mark(1);
 				int c = input.read();
 				if (c == 'x' || c == 'X') {
 					StringBuilder hexValueBuilder = new StringBuilder();
@@ -306,6 +307,7 @@ public final class ZsonParser {
 
 					throw unexpectedEOF();
 				} else {
+					input.reset();
 					return parseDecimal('0', input);
 				}
 			}
@@ -315,8 +317,7 @@ public final class ZsonParser {
 	}
 
 	private static Number parseDecimal(char c, Reader input) throws IOException {
-		StringBuilder stringValueBuilder = new StringBuilder();
-		stringValueBuilder.append(c);
+		StringBuilder stringValueBuilder = new StringBuilder().append(c);
 
 		int ch;
 		input.mark(1);
