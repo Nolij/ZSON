@@ -129,7 +129,7 @@ public final class Zson {
 		return result.toString();
 	}
 
-	public static Map<String, ZsonValue> fromObject(Object object) {
+	public static Map<String, ZsonValue> obj2Map(Object object) {
 		Map<String, ZsonValue> map = Zson.object();
 		for (Field field : object.getClass().getDeclaredFields()) {
 			if(Modifier.isStatic(field.getModifiers())) continue;
@@ -144,7 +144,7 @@ public final class Zson {
 		return map;
 	}
 
-	public static <T> T toObject(Map<String, ZsonValue> map, Class<T> type) {
+	public static <T> T map2Obj(Map<String, ZsonValue> map, Class<T> type) {
 		try {
 			T object = type.getDeclaredConstructor().newInstance();
 			for (Field field : type.getDeclaredFields()) {
@@ -168,6 +168,9 @@ public final class Zson {
 					case "int" -> field.setInt(object, (int) value);
 					case "float" -> field.setFloat(object, (float) (double) value);
 					case "double" -> field.setDouble(object, (double) value);
+					case "long" -> field.setLong(object, (long) value);
+					case "byte" -> field.setByte(object, (byte) (int) value);
+					case "char" -> field.setChar(object, (char) value);
 				}
 			} else {
 				field.set(object, type.cast(value));
