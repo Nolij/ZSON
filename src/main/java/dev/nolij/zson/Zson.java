@@ -1,5 +1,7 @@
 package dev.nolij.zson;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.Map.Entry;
 
@@ -125,6 +127,57 @@ public final class Zson {
 		}
 		
 		return result.toString();
+	}
+
+	public static Map<String, ZsonValue> fromObject(Object object) {
+		Map<String, ZsonValue> map = Zson.object();
+		for (Field field : object.getClass().getDeclaredFields()) {
+			if(Modifier.isStatic(field.getModifiers())) continue;
+			Comment comment = field.getAnnotation(Comment.class);
+			String commentValue = comment == null ? null : comment.value();
+			try {
+				map.put(field.getName(), new ZsonValue(commentValue, field.get(object)));
+			} catch (IllegalAccessException e) {
+				throw new RuntimeException("Failed to get field " + field.getName(), e);
+			}
+		}
+		return map;
+	}
+
+	public static <T> T toObject(Map<String, ZsonValue> map, Class<T> type) {
+		try {
+			T object = type.getDeclaredConstructor().newInstance();
+			for (Field field : type.getDeclaredFields()) {
+				if(Modifier.isStatic(field.getModifiers())) continue;
+				setField(field, object, map.get(field.getName()).value);
+			}
+			return object;
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create object of type " + type.getSimpleName(), e);
+		}
+	}
+
+	private static <T> void setField(Field field, Object object, Object value) {
+		@SuppressWarnings("unchecked")
+		Class<T> type = (Class<T>) field.getType();
+		try {
+			if(type.isPrimitive()) {
+				switch (type.getName()) {
+					case "boolean" -> field.setBoolean(object, (boolean) value);
+					case "short" -> field.setShort(object, (short) (int) value);
+					case "int" -> field.setInt(object, (int) value);
+					case "float" -> field.setFloat(object, (float) (double) value);
+					case "double" -> field.setDouble(object, (double) value);
+				}
+			} else {
+				field.set(object, type.cast(value));
+			}
+		} catch (Exception e) {
+			throw new RuntimeException(
+				"Failed to set field " + field.getName() + " (type " + type.getSimpleName() + ") to " + value + " " +
+					"(type " + value.getClass().getSimpleName() + ")", e
+			);
+		}
 	}
 
 	private Zson() {
