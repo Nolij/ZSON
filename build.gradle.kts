@@ -79,7 +79,7 @@ if (releaseChannel.suffix != null) {
 }
 
 val versionString = "${minorVersion}.${patchAndSuffix}"
-val versionTagName = "${releaseTagPrefix}/${versionString}"
+val versionTagName = "${releaseTagPrefix}${versionString}"
 
 version = versionString
 println("ZSON Version: $versionString")
