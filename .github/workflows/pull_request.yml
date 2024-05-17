@@ -16,7 +16,9 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY_PR }}
           cache-read-only: true
       - name: :build
-        run: ./gradlew build
+        run: ./gradlew build -x test --stacktrace
+      - name: :test
+        run: ./gradlew test --stacktrace
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
