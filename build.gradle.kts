@@ -5,6 +5,7 @@ plugins {
     id("java")
     id("maven-publish")
     id("org.ajoberstar.grgit")
+    id("com.github.breadmoirai.github-release")
 }
 
 operator fun String.invoke(): String = rootProject.properties[this] as? String ?: error("Property $this not found")
@@ -77,8 +78,11 @@ if (releaseChannel.suffix != null) {
     patchAndSuffix += "-${releaseChannel.suffix}"
 }
 
-version = "${minorVersion}.${patchAndSuffix}"
-println("ZSON Version: $version")
+val versionString = "${minorVersion}.${patchAndSuffix}"
+val versionTagName = "${releaseTagPrefix}/${versionString}"
+
+version = versionString
+println("ZSON Version: $versionString")
 
 repositories {
     mavenCentral()
@@ -136,21 +140,16 @@ tasks.withType<JavaCompile> {
     }
 }
 
-val release by tasks.registering {
-    group = "publishing"
+githubRelease {
+    setToken(providers.environmentVariable("GITHUB_TOKEN"))
+    setTagName(versionTagName)
+    setTargetCommitish("master")
+    setReleaseName(versionString)
+    setReleaseAssets(tasks.jar.get().archiveFile, sourcesJar.get().archiveFile)
+}
+
+tasks.githubRelease {
     dependsOn(tasks.assemble, tasks.check)
-    
-    doLast {
-        val tagName = "${releaseTagPrefix}/${version}"
-        val tag = grgit.tag.add {
-            name = tagName
-            pointsTo = grgit.head()
-        }
-        
-        grgit.push {
-            refsOrSpecs = listOf(tag.fullName)
-        }
-    }
 }
 
 publishing {

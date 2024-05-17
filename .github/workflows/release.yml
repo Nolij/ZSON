@@ -19,7 +19,7 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           cache-read-only: true
       - name: :release
-        run: ./gradlew release -Prelease_channel=RELEASE
+        run: ./gradlew githubRelease -Prelease_channel=RELEASE
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GRGIT_USER: ${{ secrets.GITHUB_TOKEN }}
