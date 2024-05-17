@@ -1,0 +1,25 @@
+name: build
+on: [ push ]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      - name: :build
+        run: ./gradlew build -x test --stacktrace
+      - name: :test
+        run: ./gradlew test --stacktrace
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ZSON
+          path: "**/zson-*.jar"

@@ -1,14 +1,88 @@
+import java.time.ZonedDateTime
+
 plugins {
-    idea
-    java
-    `maven-publish`
+    id("idea")
+    id("java")
+    id("maven-publish")
+    id("org.ajoberstar.grgit")
+    id("com.github.breadmoirai.github-release")
 }
 
 operator fun String.invoke(): String = rootProject.properties[this] as? String ?: error("Property $this not found")
 
 group = "maven_group"()
-version = "project_version"()
-base.archivesName = rootProject.name.lowercase()
+base.archivesName = "project_name"()
+
+enum class ReleaseChannel(val suffix: String? = null) {
+    DEV_BUILD("dev"),
+    RELEASE,
+}
+
+val headDateTime: ZonedDateTime = grgit.head().dateTime
+
+val branchName = grgit.branch.current().name!!
+val releaseTagPrefix = "release/"
+
+val releaseTags = grgit.tag.list()
+    .filter { tag -> tag.name.startsWith(releaseTagPrefix) }
+    .sortedWith { tag1, tag2 ->
+        if (tag1.commit.dateTime == tag2.commit.dateTime)
+            if (tag1.name.length != tag2.name.length)
+                return@sortedWith tag1.name.length.compareTo(tag2.name.length)
+            else
+                return@sortedWith tag1.name.compareTo(tag2.name)
+        else
+            return@sortedWith tag2.commit.dateTime.compareTo(tag1.commit.dateTime)
+    }
+    .dropWhile { tag -> tag.commit.dateTime > headDateTime }
+
+val isExternalCI = (rootProject.properties["external_publish"] as String?).toBoolean()
+val isRelease = rootProject.hasProperty("release_channel") || isExternalCI
+val releaseIncrement = if (isExternalCI) 0 else 1
+val releaseChannel: ReleaseChannel =
+    if (isExternalCI) {
+        val tagName = releaseTags.first().name
+        val suffix = """\-(\w+)\.\d+$""".toRegex().find(tagName)?.groupValues?.get(1)
+        if (suffix != null)
+            ReleaseChannel.values().find { channel -> channel.suffix == suffix }!!
+        else
+            ReleaseChannel.RELEASE
+    } else {
+        if (isRelease)
+            ReleaseChannel.valueOf("release_channel"())
+        else
+            ReleaseChannel.DEV_BUILD
+    }
+
+println("Release Channel: $releaseChannel")
+
+val minorVersion = "project_version"()
+val minorTagPrefix = "${releaseTagPrefix}${minorVersion}."
+
+val patchHistory = releaseTags
+    .map { tag -> tag.name }
+    .filter { name -> name.startsWith(minorTagPrefix) }
+    .map { name -> name.substring(minorTagPrefix.length) }
+
+val maxPatch = patchHistory.maxOfOrNull { it.substringBefore('-').toInt() }
+val patch =
+    maxPatch?.plus(
+        if (patchHistory.contains(maxPatch.toString()))
+            releaseIncrement
+        else
+            0
+    ) ?: 0
+var patchAndSuffix = patch.toString()
+
+if (releaseChannel.suffix != null) {
+    patchAndSuffix += "-${releaseChannel.suffix}"
+}
+
+val versionString = "${minorVersion}.${patchAndSuffix}"
+val versionTagName = "${releaseTagPrefix}${versionString}"
+
+version = versionString
+println("ZSON Version: $versionString")
 
 repositories {
     mavenCentral()
@@ -23,9 +97,30 @@ dependencies {
 }
 
 tasks.jar {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+    
     from(rootProject.file("LICENSE")) {
         rename { "${it}_${rootProject.name}" }
     }
+}
+
+val sourcesJar = tasks.register<Jar>("sourcesJar") {
+    group = "build"
+
+    archiveClassifier = "sources"
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+
+    from(rootProject.file("LICENSE")) {
+        rename { "${it}_${rootProject.name}" }
+    }
+
+    from(sourceSets.main.get().allSource) { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
+}
+
+tasks.assemble {
+    dependsOn(tasks.jar, sourcesJar)
 }
 
 tasks.test {
@@ -45,14 +140,32 @@ tasks.withType<JavaCompile> {
     }
 }
 
+githubRelease {
+    setToken(providers.environmentVariable("GITHUB_TOKEN"))
+    setTagName(versionTagName)
+    setTargetCommitish("master")
+    setReleaseName(versionString)
+    setReleaseAssets(tasks.jar.get().archiveFile, sourcesJar.get().archiveFile)
+}
+
+tasks.githubRelease {
+    dependsOn(tasks.assemble, tasks.check)
+}
+
 publishing {
+    repositories {
+        if (!System.getenv("local_maven_url").isNullOrEmpty())
+            maven(System.getenv("local_maven_url"))
+    }
+
     publications {
-        create<MavenPublication>("mavenJava") {
+        create<MavenPublication>("project_name"()) {
             artifact(tasks.jar)
-            artifactId = base.archivesName.get()
+            artifact(sourcesJar)
         }
     }
-    repositories {
-        mavenLocal()
-    }
+}
+
+tasks.withType<AbstractPublishToMaven> {
+    dependsOn(tasks.assemble, tasks.check)
 }
