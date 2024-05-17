@@ -5,26 +5,32 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-
-// TODO: Add support for:
-//   - hex/octal/binary numbers
-//   - unquoted keys (writer can optionally output these)
-//   - multi-line strings?
-//   - trailing commas (important! writer always outputs these)
 public final class ZsonParser {
 
-	public static <T> T parseString(String serialized) throws IOException {
-		return parse(new BufferedReader(new StringReader(serialized)));
+	public static <T> T parseFile(Path path) throws IOException {
+		try(var reader = Files.newBufferedReader(path)) {
+			return parse(reader);
+		}
+	}
+
+	public static <T> T parseString(String serialized) {
+		try {
+			return parse(new BufferedReader(new StringReader(serialized)));
+		} catch (IOException e) {
+			throw new IllegalArgumentException(e);
+		}
 	}
 
 	/**
 	 * @return One of:
-	 * - Map<String, ZsonValue>
-	 * - List<ZsonValue>
+	 * - Map<String, ZsonValue> (object)
+	 * - List<Object> (array)
 	 * - String
 	 * - Number
 	 * - Boolean
@@ -32,6 +38,10 @@ public final class ZsonParser {
 	 */
 	@SuppressWarnings("unchecked")
 	public static <T> T parse(Reader input) throws IOException {
+		if(!input.markSupported()) {
+			input = new BufferedReader(input);
+		}
+
 		while (true) {
 			if (skipWhitespace(input) || skipComment(input))
 				continue;
@@ -40,7 +50,7 @@ public final class ZsonParser {
 			if (ch == -1) {
 				throw unexpectedEOF();
 			}
-			
+
 			switch (ch) {
 				case '{' -> {
 					return (T) parseObject(input);
@@ -51,7 +61,8 @@ public final class ZsonParser {
 				case '"', '\'' -> {
 					return (T) Zson.unescape(parseString(input, (char) ch));
 				}
-				case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'N', 'I' -> {
+				case '-', '+', 'N', 'I',
+					 '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
 					return (T) parseNumber(input, (char) ch);
 				}
 				case 'n' -> {
@@ -62,48 +73,51 @@ public final class ZsonParser {
 						throw new IllegalArgumentException("Expected 'null', got 'n" + new String(chars) + "'");
 					}
 				}
+				case 't', 'f' -> {
+					return (T) parseBoolean(input, (char) ch);
+				}
 			}
-			
+
 			throw unexpected(ch);
 		}
 	}
 
 	private static Map<String, ZsonValue> parseObject(Reader input) throws IOException {
 		var map = Zson.object();
-		
+
 		var comma = false;
 		var colon = false;
 		String key = null;
-		
+
 		while (true) {
 			if (skipWhitespace(input) || skipComment(input))
 				continue;
 
 			input.mark(1);
 			int ch = input.read();
-			
+
 			if (ch == '}')
 				return map;
-			
+
 			if (comma) {
 				if (ch != ',')
-					throw new IllegalArgumentException("Expected comma");
-				
+					throw new IllegalArgumentException("Expected comma, got " + (char) ch);
+
 				comma = false;
 				continue;
 			}
-			
+
 			if (colon) {
 				if (ch != ':')
-					throw new IllegalArgumentException("Expected colon");
-				
+					throw new IllegalArgumentException("Expected colon, got " + (char) ch);
+
 				colon = false;
 				continue;
 			}
-			
+
 			if (ch == -1)
 				throw unexpectedEOF();
-			
+
 			if (key == null) {
 				key = switch (ch) {
 					case '"', '\'' -> Zson.unescape(parseString(input, (char) ch));
@@ -126,10 +140,10 @@ public final class ZsonParser {
 		}
 	}
 
-	private static List<ZsonValue> parseArray(Reader input) {
-		List<ZsonValue> list = new ArrayList<>();
-		var comma = false;
-		
+	private static List<Object> parseArray(Reader input) {
+		var list = new ArrayList<>();
+		boolean comma = false;
+
 		while (true) {
 			try {
 				if (skipWhitespace(input) || skipComment(input))
@@ -139,21 +153,21 @@ public final class ZsonParser {
 				int ch = input.read();
 				if (ch == ']')
 					return list;
-				
+
 				if (comma) {
 					if (ch != ',')
-						throw new IllegalArgumentException("Expected comma");
-					
+						throw new IllegalArgumentException("Expected comma, got " + (char) ch);
+
 					comma = false;
 					continue;
 				}
-				
+
 				if (ch == -1)
 					throw unexpectedEOF();
-				
+
 				input.reset();
 				Object value = parse(input);
-				list.add(new ZsonValue(value));
+				list.add(value);
 				comma = true;
 			} catch (IOException e) {
 				throw new IllegalArgumentException(e);
@@ -162,28 +176,28 @@ public final class ZsonParser {
 	}
 
 	private static String parseString(Reader input, char start) throws IOException {
-		var escapes = 0;
+		int escapes = 0;
 		var output = new StringBuilder();
 		int c;
-		
+
 		while ((c = input.read()) != -1) {
 			if (c == start) {
 				if (escapes == 0)
 					return output.toString();
-				
+
 				output.append(Character.toChars(c));
 				escapes--;
 			}
-			
+
 			if (c == '\n') {
 				if (escapes == 0)
 					throw new IllegalArgumentException("Unexpected newline");
-				
+
 				escapes = 0;
 				output.append('\n');
 				continue;
 			}
-			
+
 			if (c == '\\') {
 				escapes++;
 				if (escapes == 2) {
@@ -204,7 +218,7 @@ public final class ZsonParser {
 	private static String parseIdentifier(Reader input, char start) throws IOException {
 		var output = new StringBuilder();
 		output.append(start);
-		
+
 		int c;
 		input.mark(1);
 		while ((c = input.read()) != -1) {
@@ -217,8 +231,26 @@ public final class ZsonParser {
 				return output.toString();
 			}
 		}
-		
+
 		throw unexpectedEOF();
+	}
+
+	private static Boolean parseBoolean(Reader input, char start) throws IOException {
+		if (start == 't') {
+			char[] chars = new char[3];
+			if (input.read(chars) == 3 && chars[0] == 'r' && chars[1] == 'u' && chars[2] == 'e') {
+				return true;
+			} else {
+				throw new IllegalArgumentException("Expected 'true', got 't" + new String(chars) + "'");
+			}
+		} else {
+			char[] chars = new char[4];
+			if (input.read(chars) == 4 && chars[0] == 'a' && chars[1] == 'l' && chars[2] == 's' && chars[3] == 'e') {
+				return false;
+			} else {
+				throw new IllegalArgumentException("Expected 'false', got 'f" + new String(chars) + "'");
+			}
+		}
 	}
 
 	private static Number parseNumber(Reader input, char start) throws IOException {
@@ -236,57 +268,84 @@ public final class ZsonParser {
 				}
 			}
 			case 'N' -> {
-				char n = (char) input.read();
-				if (input.read() != 'a')
+				int n = input.read();
+				if (n != 'a' || (n = input.read()) != 'N') {
 					throw unexpected(n);
-				
-				n = (char) input.read();
-				if (n != 'N')
-					throw unexpected(n);
-				
-				return Float.NaN;
+				}
+
+				return Double.NaN;
 			}
 			case 'I' -> {
 				char[] chars = new char[7];
-				if (input.read(chars) != 7 || "nfinity".equals(new String(chars)))
+				if ((input.read(chars) != 7))
+					throw unexpectedEOF();
+				if (!"nfinity".equals(new String(chars))) {
 					throw new IllegalArgumentException("Expected 'Infinity', got 'I" + new String(chars) + "'");
-				
+				}
+
 				return Double.POSITIVE_INFINITY;
 			}
-			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
-				StringBuilder stringValueBuilder = new StringBuilder();
-				stringValueBuilder.append(start);
-				
-				int c;
+			case '+', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
+				return parseDecimal(start, input);
+			}
+
+			case '0' -> {
 				input.mark(1);
-				while ((c = input.read()) != -1) {
-					if (Character.isDigit(c) || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-') {
-						input.mark(1);
-						stringValueBuilder.append(Character.toChars(c));
-					} else {
-						input.reset();
-						String stringValue = stringValueBuilder.toString();
-						if (stringValue.contains(".") || stringValue.contains("e") || stringValue.contains("E")) {
-							return Double.parseDouble(stringValue);
+				int c = input.read();
+				if (c == 'x' || c == 'X') {
+					StringBuilder hexValueBuilder = new StringBuilder();
+					input.mark(1);
+					while ((c = input.read()) != -1) {
+						if (Character.isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+							input.mark(1);
+							hexValueBuilder.append(Character.toChars(c));
 						} else {
-							try {
-								return Integer.parseInt(stringValue);
-							} catch (NumberFormatException e) {
-								try {
-									return Long.parseLong(stringValue);
-								} catch (NumberFormatException e2) {
-									return new BigInteger(stringValue);
-								}
-							}
+							input.reset();
+							return Integer.parseInt(hexValueBuilder.toString(), 16);
 						}
 					}
+
+					throw unexpectedEOF();
+				} else {
+					input.reset();
+					return parseDecimal('0', input);
 				}
-				
-				throw unexpectedEOF();
 			}
 		}
-		
+
 		throw unexpected(start);
+	}
+
+	private static Number parseDecimal(char c, Reader input) throws IOException {
+		StringBuilder stringValueBuilder = new StringBuilder().append(c);
+
+		int ch;
+		input.mark(1);
+		while ((ch = input.read()) != -1) {
+			if (Character.isDigit(ch) || ch == '.' || ch == 'e' || ch == 'E' || ch == '+' || ch == '-') {
+				input.mark(1);
+				stringValueBuilder.append(Character.toChars(ch));
+			} else {
+				input.reset();
+				String stringValue = stringValueBuilder.toString();
+				if (stringValue.contains(".") || stringValue.contains("e") || stringValue.contains("E")) {
+					return Double.parseDouble(stringValue);
+				}
+
+				Number number = null;
+				try {
+					BigInteger bigIntValue = new BigInteger(stringValue);
+					number = bigIntValue;
+					number = bigIntValue.longValueExact();
+					number = bigIntValue.intValueExact();
+				} catch (ArithmeticException ignored) {
+				}
+
+				return number;
+			}
+		}
+
+		throw unexpectedEOF();
 	}
 
 	private static boolean skipWhitespace(Reader input) throws IOException {
@@ -296,14 +355,14 @@ public final class ZsonParser {
 		while ((c = input.read()) != -1) {
 			if (!Character.isWhitespace(c)) {
 				input.reset();
-				
+
 				return skipped != 0;
 			}
-			
+
 			skipped++;
 			input.mark(1);
 		}
-		
+
 		throw unexpectedEOF();
 	}
 
@@ -316,13 +375,13 @@ public final class ZsonParser {
 				while ((c = input.read()) != -1)
 					if (c == '\n')
 						break;
-				
+
 				return true;
 			} else if (c2 == '*') {
 				while ((c = input.read()) != -1)
 					if (c == '*' && input.read() == '/')
 						return true;
-							
+
 				throw unexpectedEOF();
 			} else {
 				input.reset();
@@ -330,7 +389,7 @@ public final class ZsonParser {
 		} else {
 			input.reset();
 		}
-		
+
 		return false;
 	}
 

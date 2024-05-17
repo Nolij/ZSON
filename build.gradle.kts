@@ -1,6 +1,7 @@
 plugins {
     idea
     java
+    `maven-publish`
 }
 
 operator fun String.invoke(): String = rootProject.properties[this] as? String ?: error("Property $this not found")
@@ -15,10 +16,10 @@ repositories {
 
 dependencies {
     compileOnly("org.jetbrains:annotations:${"jetbrains_annotations_version"()}")
-    "com.pkware.jabel:jabel-javac-plugin:${"jabel_version"()}".also {
-        annotationProcessor(it)
-        compileOnly(it)
-    }
+    compileOnly("com.pkware.jabel:jabel-javac-plugin:${"jabel_version"()}", ::annotationProcessor)
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.0-M1")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.jar {
@@ -27,9 +28,8 @@ tasks.jar {
     }
 }
 
-tasks.register<JavaExec>("testRun") {
-    mainClass = "Main"
-    classpath(sourceSets["test"].runtimeClasspath)
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks.withType<GenerateModuleMetadata> {
@@ -42,5 +42,17 @@ tasks.withType<JavaCompile> {
     options.release = 8
     javaCompiler = javaToolchains.compilerFor {
         languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            artifact(tasks.jar)
+            artifactId = base.archivesName.get()
+        }
+    }
+    repositories {
+        mavenLocal()
     }
 }
