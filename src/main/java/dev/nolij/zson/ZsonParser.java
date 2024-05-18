@@ -1,5 +1,9 @@
 package dev.nolij.zson;
 
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
@@ -11,15 +15,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("UnstableApiUsage")
 public final class ZsonParser {
 
-	public static <T> T parseFile(Path path) throws IOException {
+	@Nullable
+	@Contract(pure = true)
+	public static <T> T parseFile(@NotNull Path path) throws IOException {
 		try(var reader = Files.newBufferedReader(path)) {
 			return parse(reader);
 		}
 	}
 
-	public static <T> T parseString(String serialized) {
+	@Nullable
+	@Contract(pure = true)
+	public static <T> T parseString(@NotNull String serialized) {
 		try {
 			return parse(new BufferedReader(new StringReader(serialized)));
 		} catch (IOException e) {
@@ -36,7 +45,9 @@ public final class ZsonParser {
 	 * - Boolean
 	 * - null
 	 */
+	@Nullable
 	@SuppressWarnings("unchecked")
+	@Contract(mutates = "param")
 	public static <T> T parse(Reader input) throws IOException {
 		if(!input.markSupported()) {
 			input = new BufferedReader(input);
@@ -82,6 +93,7 @@ public final class ZsonParser {
 		}
 	}
 
+	@Contract(mutates = "param")
 	private static Map<String, ZsonValue> parseObject(Reader input) throws IOException {
 		var map = Zson.object();
 
@@ -140,6 +152,7 @@ public final class ZsonParser {
 		}
 	}
 
+	@Contract(mutates = "param")
 	private static List<Object> parseArray(Reader input) {
 		var list = new ArrayList<>();
 		boolean comma = false;
@@ -175,6 +188,7 @@ public final class ZsonParser {
 		}
 	}
 
+	@Contract(mutates = "param1")
 	private static String parseString(Reader input, char start) throws IOException {
 		int escapes = 0;
 		var output = new StringBuilder();
@@ -215,6 +229,7 @@ public final class ZsonParser {
 		throw unexpectedEOF();
 	}
 
+	@Contract(mutates = "param1")
 	private static String parseIdentifier(Reader input, char start) throws IOException {
 		var output = new StringBuilder();
 		output.append(start);
@@ -235,6 +250,7 @@ public final class ZsonParser {
 		throw unexpectedEOF();
 	}
 
+	@Contract(mutates = "param1")
 	private static Boolean parseBoolean(Reader input, char start) throws IOException {
 		if (start == 't') {
 			char[] chars = new char[3];
@@ -253,6 +269,7 @@ public final class ZsonParser {
 		}
 	}
 
+	@Contract(mutates = "param1")
 	private static Number parseNumber(Reader input, char start) throws IOException {
 		switch (start) {
 			case '-' -> {
@@ -316,6 +333,7 @@ public final class ZsonParser {
 		throw unexpected(start);
 	}
 
+	@Contract(mutates = "param2")
 	private static Number parseDecimal(char c, Reader input) throws IOException {
 		StringBuilder stringValueBuilder = new StringBuilder().append(c);
 
@@ -348,6 +366,7 @@ public final class ZsonParser {
 		throw unexpectedEOF();
 	}
 
+	@Contract(mutates = "param")
 	private static boolean skipWhitespace(Reader input) throws IOException {
 		input.mark(1);
 		int c;
@@ -366,6 +385,7 @@ public final class ZsonParser {
 		throw unexpectedEOF();
 	}
 
+	@Contract(mutates = "param")
 	private static boolean skipComment(Reader input) throws IOException {
 		input.mark(2);
 		int c = input.read();
@@ -393,11 +413,16 @@ public final class ZsonParser {
 		return false;
 	}
 
+	@Contract("_ -> fail")
 	private static IllegalArgumentException unexpected(int ch) {
 		return new IllegalArgumentException("Unexpected character: " + (char) ch);
 	}
 
+	@Contract(" -> fail")
 	private static IllegalArgumentException unexpectedEOF() {
 		return new IllegalArgumentException("Unexpected EOF");
+	}
+
+	private ZsonParser() {
 	}
 }

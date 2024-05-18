@@ -1,12 +1,18 @@
 package dev.nolij.zson;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Objects;
 
 public final class ZsonValue {
+
+	@Nullable
 	public String comment;
+
+	@Nullable
 	public Object value;
 	
-	public ZsonValue(String comment, Object value) {
+	public ZsonValue(@Nullable String comment, @Nullable Object value) {
 		this.comment = comment;
 		this.value = value;
 	}
@@ -17,7 +23,7 @@ public final class ZsonValue {
 
 	@Override
 	public int hashCode() {
-		return value.hashCode();
+		return value == null ? 0 : value.hashCode();
 	}
 
 	@Override

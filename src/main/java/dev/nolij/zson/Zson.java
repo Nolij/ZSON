@@ -1,22 +1,33 @@
 package dev.nolij.zson;
 
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.Map.Entry;
 
+
 public final class Zson {
 
-	public static Map.Entry<String, ZsonValue> entry(String key, String comment, Object value) {
+	@NotNull
+	@Contract("_, _, _ -> new")
+	public static Map.Entry<String, ZsonValue> entry(@Nullable String key, @Nullable String comment, @Nullable Object value) {
 		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(comment, value));
 	}
 
-	public static Map.Entry<String, ZsonValue> entry(String key, Object value) {
+	@NotNull
+	@Contract(value = "_, _ -> new", pure = true)
+	public static Map.Entry<String, ZsonValue> entry(@Nullable String key, @Nullable Object value) {
 		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(value));
 	}
 
+	@NotNull
 	@SafeVarargs
-	public static Map<String, ZsonValue> object(Map.Entry<String, ZsonValue>... entries) {
+	@Contract("_ -> new")
+	public static Map<String, ZsonValue> object(@NotNull Map.Entry<String, ZsonValue>... entries) {
 		Map<String, ZsonValue> map = new LinkedHashMap<>();
 		for (Entry<String, ZsonValue> e : entries) {
 			map.put(e.getKey(), e.getValue());
@@ -24,14 +35,18 @@ public final class Zson {
 		return map;
 	}
 
-	public static List<?> array(Object... values) {
+	@NotNull
+	@Contract("_ -> new")
+	public static List<?> array(@NotNull Object... values) {
 		List<Object> list = new ArrayList<>();
 		Collections.addAll(list, values);
 		
 		return list;
 	}
 
-	public static String unescape(String string) {
+	@Nullable
+	@Contract("null -> null; !null -> !null")
+	public static String unescape(@Nullable String string) {
 		if (string == null || string.isEmpty())
 			return string;
 		
@@ -85,7 +100,9 @@ public final class Zson {
 		return new String(chars, 0, j);
 	}
 
-	public static String escape(String string, char escapeQuotes) {
+	@Nullable
+	@Contract("null, _ -> null; !null, _ -> !null")
+	public static String escape(@Nullable String string, char escapeQuotes) {
 		if (string == null || string.isEmpty())
 			return string;
 
@@ -129,10 +146,12 @@ public final class Zson {
 		return result.toString();
 	}
 
-	public static Map<String, ZsonValue> obj2Map(Object object) {
+	@NotNull
+	@Contract("_ -> new")
+	public static Map<String, ZsonValue> obj2Map(@NotNull Object object) {
 		Map<String, ZsonValue> map = Zson.object();
 		for (Field field : object.getClass().getDeclaredFields()) {
-			if(Modifier.isStatic(field.getModifiers())) continue;
+			if(!shouldInclude(field, true)) continue;
 			Comment comment = field.getAnnotation(Comment.class);
 			String commentValue = comment == null ? null : comment.value();
 			try {
@@ -144,17 +163,44 @@ public final class Zson {
 		return map;
 	}
 
-	public static <T> T map2Obj(Map<String, ZsonValue> map, Class<T> type) {
+	@NotNull
+	@Contract("_ , _ -> new")
+	public static <T> T map2Obj(@NotNull Map<String, ZsonValue> map, @NotNull Class<T> type) {
 		try {
 			T object = type.getDeclaredConstructor().newInstance();
 			for (Field field : type.getDeclaredFields()) {
-				if(Modifier.isStatic(field.getModifiers())) continue;
+				if(!shouldInclude(field, false)) continue;
 				setField(field, object, map.get(field.getName()).value);
 			}
 			return object;
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create object of type " + type.getSimpleName(), e);
 		}
+	}
+
+	private static boolean shouldInclude(Field field, boolean includeStatic) {
+		int modifiers = field.getModifiers();
+		Exclude exclude = field.getAnnotation(Exclude.class);
+		if(exclude != null) return false;
+
+		boolean privateOrProtected = Modifier.isPrivate(modifiers) || Modifier.isProtected(modifiers);
+		boolean isStatic = Modifier.isStatic(modifiers) && !includeStatic;
+
+		Include include = field.getAnnotation(Include.class);
+		if(include != null) {
+			if(!isStatic) {
+				if(privateOrProtected) {
+					field.setAccessible(true);
+				}
+				return true;
+			} else {
+				return false;
+			}
+		}
+		if(privateOrProtected) {
+			return false;
+		}
+		return !isStatic;
 	}
 
 	private static <T> void setField(Field field, Object object, Object value) {
