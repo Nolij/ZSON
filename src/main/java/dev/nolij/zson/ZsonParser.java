@@ -18,6 +18,12 @@ import java.util.Map;
 @SuppressWarnings("UnstableApiUsage")
 public final class ZsonParser {
 
+	/**
+	 * Parses a JSON value from the contents of the given {@link Path}.
+	 * If the file contains multiple JSON values, only the first one will be parsed.
+	 * @param path The path to the file to parse
+	 * @return see {@link #parse(Reader)}
+	 */
 	@Nullable
 	@Contract(pure = true)
 	public static <T> T parseFile(@NotNull Path path) throws IOException {
@@ -26,6 +32,12 @@ public final class ZsonParser {
 		}
 	}
 
+	/**
+	 * Parses a JSON value from the given {@link String}.
+	 * If the string contains multiple JSON values, only the first one will be parsed.
+	 * @param serialized The JSON string to parse
+	 * @return see {@link #parse(Reader)}
+	 */
 	@Nullable
 	@Contract(pure = true)
 	public static <T> T parseString(@NotNull String serialized) {
@@ -37,13 +49,17 @@ public final class ZsonParser {
 	}
 
 	/**
+	 * Parses a JSON value from the given {@link Reader}. The reader should be positioned at the start of the JSON value.
+	 * If the reader contains multiple JSON values, only the first one will be parsed.
 	 * @return One of:
-	 * - Map<String, ZsonValue> (object)
-	 * - List<Object> (array)
-	 * - String
-	 * - Number
-	 * - Boolean
-	 * - null
+	 * <ul>
+	 *     <li>{@link Map} - for JSON objects</li>
+	 *     <li>{@link List} - for JSON arrays</li>
+	 *     <li>{@link String} - for JSON strings</li>
+	 *     <li>{@link Number} - for JSON numbers</li>
+	 *     <li>{@link Boolean} - for JSON booleans</li>
+	 *     <li>{@code null} - for JSON nulls</li>
+	 * </ul>
 	 */
 	@Nullable
 	@SuppressWarnings("unchecked")
@@ -93,6 +109,12 @@ public final class ZsonParser {
 		}
 	}
 
+	/**
+	 * Parses a JSON object from the given {@link Reader}. The reader should be positioned at the start of the object.
+	 * @param input The reader to parse the object from
+	 * @return A map of the key-value pairs in the object
+	 * @throws IOException If an I/O error occurs
+	 */
 	@Contract(mutates = "param")
 	private static Map<String, ZsonValue> parseObject(Reader input) throws IOException {
 		var map = Zson.object();
@@ -152,6 +174,11 @@ public final class ZsonParser {
 		}
 	}
 
+	/**
+	 * Parses a JSON array from the given {@link Reader}. The reader should be positioned at the start of the array.
+	 * @param input The reader to parse the array from
+	 * @return A list of the values in the array
+	 */
 	@Contract(mutates = "param")
 	private static List<Object> parseArray(Reader input) {
 		var list = new ArrayList<>();
@@ -188,6 +215,13 @@ public final class ZsonParser {
 		}
 	}
 
+	/**
+	 * Parses a JSON string from the given {@link Reader}. The reader should be positioned at the start of the string.
+	 * @param input The reader to parse the string from
+	 * @param start The first character of the string
+	 * @return The parsed string
+	 * @throws IOException If an I/O error occurs
+	 */
 	@Contract(mutates = "param1")
 	private static String parseString(Reader input, char start) throws IOException {
 		int escapes = 0;
@@ -229,6 +263,13 @@ public final class ZsonParser {
 		throw unexpectedEOF();
 	}
 
+	/**
+	 * Parses a JSON identifier from the given {@link Reader}. The reader should be positioned at the start of the identifier.
+	 * @param input The reader to parse the identifier from
+	 * @param start The first character of the identifier
+	 * @return The parsed identifier
+	 * @throws IOException If an I/O error occurs
+	 */
 	@Contract(mutates = "param1")
 	private static String parseIdentifier(Reader input, char start) throws IOException {
 		var output = new StringBuilder();
@@ -250,6 +291,13 @@ public final class ZsonParser {
 		throw unexpectedEOF();
 	}
 
+	/**
+	 * Parses a JSON boolean from the given {@link Reader}. The reader should be positioned at the start of the boolean.
+	 * @param input The reader to parse the boolean from
+	 * @param start The first character of the boolean
+	 * @return The parsed boolean
+	 * @throws IOException If an I/O error occurs
+	 */
 	@Contract(mutates = "param1")
 	private static Boolean parseBoolean(Reader input, char start) throws IOException {
 		if (start == 't') {
@@ -269,20 +317,33 @@ public final class ZsonParser {
 		}
 	}
 
+	/**
+	 * Parses a JSON number from the given {@link Reader}. The number can be a floating-point number less than {@link Double#MAX_VALUE},
+	 * an integer between -2<sup>{@code Integer.MAX_VALUE}</sup> and 2<sup>{@code Integer.MAX_VALUE}</sup>
+	 * (will try to parse as an {@link Integer} or {@link Long} first before parsing as a {@link BigInteger}),
+	 *
+	 * @param input The reader to parse the number from
+	 * @param start The first character of the number
+	 * @return One of:
+	 * <ul>
+	 *     <li>{@link Integer} - for numbers that can be represented as an integer</li>
+	 *     <li>{@link Long} - for numbers that can be represented as a long</li>
+	 *     <li>{@link BigInteger} - for numbers that cannot be represented as an integer or long</li>
+	 *     <li>{@link Double} - for floating-point numbers</li>
+	 * </ul>
+	 * @throws IOException If an I/O error occurs
+	 */
 	@Contract(mutates = "param1")
 	private static Number parseNumber(Reader input, char start) throws IOException {
 		switch (start) {
 			case '-' -> {
 				Number numberValue = parseNumber(input, (char) input.read());
-				if (numberValue instanceof Double doubleValue) {
-					return -doubleValue;
-				} else if (numberValue instanceof Long longValue) {
-					return -longValue;
-				} else if (numberValue instanceof BigInteger bigIntValue) {
-					return bigIntValue.negate();
-				} else {
-					return -((Integer) numberValue);
-				}
+				return switch(numberValue) {
+					case Double d -> -d;
+					case Long l -> -l;
+					case BigInteger b -> b.negate();
+					default -> -((Integer) numberValue);
+				};
 			}
 			case 'N' -> {
 				int n = input.read();
@@ -303,7 +364,7 @@ public final class ZsonParser {
 				return Double.POSITIVE_INFINITY;
 			}
 			case '+', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
-				return parseDecimal(start, input);
+				return parseDecimal(input, start);
 			}
 
 			case '0' -> {
@@ -325,7 +386,7 @@ public final class ZsonParser {
 					throw unexpectedEOF();
 				} else {
 					input.reset();
-					return parseDecimal('0', input);
+					return parseDecimal(input, '0');
 				}
 			}
 		}
@@ -333,8 +394,21 @@ public final class ZsonParser {
 		throw unexpected(start);
 	}
 
-	@Contract(mutates = "param2")
-	private static Number parseDecimal(char c, Reader input) throws IOException {
+	/**
+	 * Parses a JSON decimal number from the given {@link Reader}. The reader should be positioned at the start of the number.
+	 * @param input The reader to parse the number from
+	 * @param c The first character of the number
+	 * @return One of:
+	 * <ul>
+	 *     <li>{@link Integer} - for numbers that can be represented as an integer</li>
+	 *     <li>{@link Long} - for numbers that can be represented as a long</li>
+	 *     <li>{@link BigInteger} - for numbers that cannot be represented as an integer or long</li>
+	 *     <li>{@link Double} - for floating-point numbers</li>
+	 * </ul>
+	 * @throws IOException If an I/O error occurs
+	 */
+	@Contract(mutates = "param1")
+	private static Number parseDecimal(Reader input, char c) throws IOException {
 		StringBuilder stringValueBuilder = new StringBuilder().append(c);
 
 		int ch;
@@ -366,6 +440,12 @@ public final class ZsonParser {
 		throw unexpectedEOF();
 	}
 
+	/**
+	 * Advances the reader until a non-whitespace character is found.
+	 * @param input The reader to skip whitespace in
+	 * @return {@code true} if any whitespace was skipped, {@code false} otherwise
+	 * @throws IOException If an I/O error occurs
+	 */
 	@Contract(mutates = "param")
 	private static boolean skipWhitespace(Reader input) throws IOException {
 		input.mark(1);
@@ -385,6 +465,12 @@ public final class ZsonParser {
 		throw unexpectedEOF();
 	}
 
+	/**
+	 * Advances the reader until a non-comment character is found.
+	 * @param input The reader to skip comments in
+	 * @return {@code true} if any comments were skipped, {@code false} otherwise
+	 * @throws IOException If an I/O error occurs
+	 */
 	@Contract(mutates = "param")
 	private static boolean skipComment(Reader input) throws IOException {
 		input.mark(2);

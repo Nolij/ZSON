@@ -133,10 +133,10 @@ tasks.withType<GenerateModuleMetadata> {
 
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
-    sourceCompatibility = "17"
+    sourceCompatibility = "21"
     options.release = 8
     javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
