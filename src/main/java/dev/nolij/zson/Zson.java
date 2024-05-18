@@ -155,7 +155,10 @@ public final class Zson {
 			Comment comment = field.getAnnotation(Comment.class);
 			String commentValue = comment == null ? null : comment.value();
 			try {
+				boolean accessible = field.canAccess(object);
+				if (!accessible) field.setAccessible(true);
 				map.put(field.getName(), new ZsonValue(commentValue, field.get(object)));
+				if (!accessible) field.setAccessible(false);
 			} catch (IllegalAccessException e) {
 				throw new RuntimeException("Failed to get field " + field.getName(), e);
 			}
@@ -170,7 +173,15 @@ public final class Zson {
 			T object = type.getDeclaredConstructor().newInstance();
 			for (Field field : type.getDeclaredFields()) {
 				if(!shouldInclude(field, false)) continue;
+
+				if (!map.containsKey(field.getName())) {
+					throw new IllegalArgumentException("Missing field " + field.getName() + " in map");
+				}
+
+				boolean accessible = field.canAccess(object);
+				if (!accessible) field.setAccessible(true);
 				setField(field, object, map.get(field.getName()).value);
+				if (!accessible) field.setAccessible(false);
 			}
 			return object;
 		} catch (Exception e) {
@@ -179,28 +190,13 @@ public final class Zson {
 	}
 
 	private static boolean shouldInclude(Field field, boolean includeStatic) {
-		int modifiers = field.getModifiers();
 		Exclude exclude = field.getAnnotation(Exclude.class);
-		if(exclude != null) return false;
-
-		boolean privateOrProtected = Modifier.isPrivate(modifiers) || Modifier.isProtected(modifiers);
-		boolean isStatic = Modifier.isStatic(modifiers) && !includeStatic;
+		if (exclude != null) return false;
+		int modifiers = field.getModifiers();
+		if(Modifier.isTransient(modifiers)) return false;
 
 		Include include = field.getAnnotation(Include.class);
-		if(include != null) {
-			if(!isStatic) {
-				if(privateOrProtected) {
-					field.setAccessible(true);
-				}
-				return true;
-			} else {
-				return false;
-			}
-		}
-		if(privateOrProtected) {
-			return false;
-		}
-		return !isStatic;
+		return (includeStatic || !Modifier.isStatic(modifiers)) && (include != null || Modifier.isPublic(modifiers));
 	}
 
 	private static <T> void setField(Field field, Object object, Object value) {
@@ -222,7 +218,7 @@ public final class Zson {
 				field.set(object, type.cast(value));
 			}
 		} catch (Exception e) {
-			throw new RuntimeException(
+			throw new AssertionError(
 				"Failed to set field " + field.getName() + " (type " + type.getSimpleName() + ") to " + value + " " +
 					"(type " + value.getClass().getSimpleName() + ")", e
 			);
