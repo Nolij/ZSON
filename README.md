@@ -36,6 +36,8 @@ dependencies {
 }
 ```
 </details>
+Replace `version` with the version of the library you want to use.
+You can find the latest version on the [releases page](https://github.com/Nolij/ZSON/releases).
 
 Then, you can use the library like so:
 ```java
@@ -87,7 +89,49 @@ This prints out:
 }
 ```
 
-<!--- TODO: make a tutorial for serializing objects and the annotations that help in doing so --->
+## Serializing objects
+ZSON can serialize objects to JSON using reflection. Here's an example:
+```java
+import dev.nolij.zson.Zson;
+import dev.nolij.zson.Comment;
+import dev.nolij.zson.Include;
+import dev.nolij.zson.Exclude;
+import dev.nolij.zson.ZsonValue;
+
+public class Example {
+	@Comment("This is a comment")
+	public String key = "value";
+	
+	@Include
+    private int number = 4;
+	
+	@Exclude
+    public String excluded = "this won't be included";
+	
+	public static void main(String[] args) {
+		Example example = new Example();
+        Map<String, ZsonValue> zson = Zson.obj2map(example);
+		System.out.println(new ZsonWriter().stringify(zson));
+	}
+}
+```
+
+This prints out:
+```json5
+{
+  // This is a comment
+  "key": "value",
+  "number": 4,
+}
+```
+
+Use the `@Comment` annotation to add a comment to a field, and the `@Include` and `@Exclude` annotations to include or exclude fields from serialization.
+By default, all public fields are included, and all private fields are excluded. If they are annotated with `@Include`, static fields will be serialized but not deserialized.
+
+Also see the [tests](src/test/java/ZsonTest.java) for more examples.
+
+## Building
+To build the project, run `./gradlew build` on Unix or `gradlew.bat build` on Windows.
 
 ## License
 

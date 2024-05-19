@@ -16,11 +16,14 @@ import java.util.Map;
 @SuppressWarnings("UnstableApiUsage")
 public final class ZsonWriter {
 
-	public String indent = "\t";
-	public boolean expandArrays = false;
-	public boolean quoteKeys = true;
+	public String indent;
+	public boolean expandArrays;
+	public boolean quoteKeys;
 
 	public ZsonWriter() {
+		this.indent = "\t";
+		this.expandArrays = false;
+		this.quoteKeys = true;
 	}
 
 	/**
@@ -140,19 +143,21 @@ public final class ZsonWriter {
 		throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getName());
 	}
 
+	@Contract(value = "_ -> this", mutates = "this")
 	public ZsonWriter withIndent(String indent) {
 		this.indent = indent;
 		return this;
 	}
 
+	@Contract(value = "_ -> this", mutates = "this")
 	public ZsonWriter withExpandArrays(boolean expandArrays) {
 		this.expandArrays = expandArrays;
 		return this;
 	}
 
+	@Contract(value = "_ -> this", mutates = "this")
 	public ZsonWriter withQuoteKeys(boolean quoteKeys) {
 		this.quoteKeys = quoteKeys;
 		return this;
 	}
-	
 }
