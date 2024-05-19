@@ -1,5 +1,8 @@
 package dev.nolij.zson;
 
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -7,13 +10,26 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+/**
+ * Writes Zson data to a string or file.
+ */
+@SuppressWarnings("UnstableApiUsage")
 public final class ZsonWriter {
 
 	public String indent = "\t";
 	public boolean expandArrays = false;
 	public boolean quoteKeys = true;
 
-	public String stringify(Map<String, ZsonValue> data) {
+	public ZsonWriter() {
+	}
+
+	/**
+	 * Converts the given data to a JSON5 string.
+	 * @param data The data to convert.
+	 * @return The JSON5 string.
+	 */
+	@NotNull
+	public String stringify(@NotNull Map<String, ZsonValue> data) {
 		StringWriter output = new StringWriter();
 		
 		try {
@@ -25,14 +41,28 @@ public final class ZsonWriter {
 		return output.toString();
 	}
 
-	public void write(Map<String, ZsonValue> data, Path path) throws IOException {
+	/**
+	 * Writes the given data in JSON5 format to the given file.
+	 * @param data The data to write.
+	 * @param path The file to write to.
+	 * @throws IOException If an I/O error occurs.
+	 */
+	@Contract(mutates = "param2")
+	public void write(@NotNull Map<String, ZsonValue> data, @NotNull Path path) throws IOException {
 		try (Writer output = Files.newBufferedWriter(path)) {
 			write(data, output);
 			output.flush();
 		}
 	}
-	
-	public void write(Map<String, ZsonValue> data, Appendable output) throws IOException {
+
+	/**
+	 * Writes the given data in JSON5 format to the given output.
+	 * @param data The data to write.
+	 * @param output The output to write to.
+	 * @throws IOException If an I/O error occurs.
+	 */
+	@Contract(mutates = "param2")
+	public void write(@NotNull Map<String, ZsonValue> data, @NotNull Appendable output) throws IOException {
 		output.append("{\n");
 		
 		for (var entry : data.entrySet()) {
@@ -63,7 +93,12 @@ public final class ZsonWriter {
 		
 		output.append("}");
 	}
-	
+
+	/**
+	 * Converts the given object to a JSON5 value.
+	 * @param value The value to convert.
+	 * @return a JSON5-compatible string representation of the value.
+	 */
 	private String value(Object value) {
 		if (value instanceof Map<?, ?>) {
 			try {

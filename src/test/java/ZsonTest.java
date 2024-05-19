@@ -1,5 +1,8 @@
 import org.junit.jupiter.api.Test;
 
+import dev.nolij.zson.Comment;
+import dev.nolij.zson.Exclude;
+import dev.nolij.zson.Include;
 import dev.nolij.zson.Zson;
 import dev.nolij.zson.ZsonParser;
 import dev.nolij.zson.ZsonValue;
@@ -160,5 +163,41 @@ public class ZsonTest {
 			"w": NaN,
 			"neginf": -Infinity,
 		}""", new ZsonWriter().stringify(map));
+	}
+
+	@Test
+	public void testObject() {
+		Map<String, ZsonValue> json = Zson.obj2Map(new TestObject());
+		String expected = """
+		{
+			// look a comment
+			"wow": 42,
+			"such": "amaze",
+			"very": true,
+			"constant": "wow",
+		}""";
+
+		assertEquals(expected, new ZsonWriter().stringify(json));
+
+		TestObject obj = Zson.map2Obj(json, TestObject.class);
+		assertEquals(42, obj.wow);
+		assertEquals("amaze", obj.such);
+		assertTrue(obj.very);
+		assertEquals(3.14, obj.pi);
+	}
+
+	public static class TestObject {
+		@Comment("look a comment")
+		public int wow = 42;
+		public String such = "amaze";
+
+		@Include
+		private boolean very = true;
+
+		@Exclude
+		public double pi = 3.14;
+
+		@Include
+		public static final String constant = "wow";
 	}
 }

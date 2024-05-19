@@ -22,7 +22,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ZSON
-          path: "build/libs/zson-*.jar"
+          path: "build/libs/*.jar"
       - name: Upload test results
         uses: actions/upload-artifact@v3
         with:

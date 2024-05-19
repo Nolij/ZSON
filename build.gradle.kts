@@ -1,3 +1,4 @@
+import xyz.wagyourtail.jvmdg.gradle.task.DowngradeJar
 import java.time.ZonedDateTime
 
 plugins {
@@ -6,6 +7,7 @@ plugins {
     id("maven-publish")
     id("org.ajoberstar.grgit")
     id("com.github.breadmoirai.github-release")
+    id("xyz.wagyourtail.jvmdowngrader")
 }
 
 operator fun String.invoke(): String = rootProject.properties[this] as? String ?: error("Property $this not found")
@@ -13,6 +15,7 @@ operator fun String.invoke(): String = rootProject.properties[this] as? String ?
 group = "maven_group"()
 base.archivesName = "project_name"()
 
+//region Git
 enum class ReleaseChannel(val suffix: String? = null) {
     DEV_BUILD("dev"),
     RELEASE,
@@ -81,6 +84,8 @@ if (releaseChannel.suffix != null) {
 val versionString = "${minorVersion}.${patchAndSuffix}"
 val versionTagName = "${releaseTagPrefix}${versionString}"
 
+//endregion
+
 version = versionString
 println("ZSON Version: $versionString")
 
@@ -90,10 +95,22 @@ repositories {
 
 dependencies {
     compileOnly("org.jetbrains:annotations:${"jetbrains_annotations_version"()}")
-    compileOnly("com.pkware.jabel:jabel-javac-plugin:${"jabel_version"()}", ::annotationProcessor)
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.0-M1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.downgradeJar {
+    dependsOn(tasks.jar)
+    downgradeTo = JavaVersion.VERSION_1_8
+    archiveClassifier = "downgraded-8"
+}
+
+val downgradeJar17 = tasks.register<DowngradeJar>("downgradeJar17") {
+    dependsOn(tasks.jar)
+    downgradeTo = JavaVersion.VERSION_17
+    inputFile = tasks.jar.get().archiveFile
+    archiveClassifier = "downgraded-17"
 }
 
 tasks.jar {
@@ -103,20 +120,15 @@ tasks.jar {
     from(rootProject.file("LICENSE")) {
         rename { "${it}_${rootProject.name}" }
     }
+
+    finalizedBy(tasks.downgradeJar, downgradeJar17)
 }
 
-val sourcesJar = tasks.register<Jar>("sourcesJar") {
-    group = "build"
-
-    archiveClassifier = "sources"
-    isPreserveFileTimestamps = false
-    isReproducibleFileOrder = true
-
+java.withSourcesJar()
+val sourcesJar: Jar = tasks.withType<Jar>()["sourcesJar"].apply {
     from(rootProject.file("LICENSE")) {
         rename { "${it}_${rootProject.name}" }
     }
-
-    from(sourceSets.main.get().allSource) { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
 }
 
 tasks.assemble {
@@ -133,10 +145,9 @@ tasks.withType<GenerateModuleMetadata> {
 
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
-    sourceCompatibility = "17"
-    options.release = 8
+    sourceCompatibility = "21"
     javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
@@ -145,7 +156,7 @@ githubRelease {
     setTagName(versionTagName)
     setTargetCommitish("master")
     setReleaseName(versionString)
-    setReleaseAssets(tasks.jar.get().archiveFile, sourcesJar.get().archiveFile)
+    setReleaseAssets(tasks.jar.get().archiveFile, sourcesJar.archiveFile)
 }
 
 tasks.githubRelease {
@@ -160,8 +171,10 @@ publishing {
 
     publications {
         create<MavenPublication>("project_name"()) {
-            artifact(tasks.jar)
-            artifact(sourcesJar)
+            artifact(tasks.jar) // java 21
+            artifact(downgradeJar17) // java 17
+            artifact(tasks.downgradeJar) // java 8
+            artifact(sourcesJar) // java 21 sources
         }
     }
 }
