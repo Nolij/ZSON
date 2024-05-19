@@ -167,8 +167,10 @@ publishing {
 
     publications {
         create<MavenPublication>("project_name"()) {
-            artifact(tasks.jar)
-            artifact(sourcesJar)
+            artifact(tasks.jar) // java 21
+            artifact(downgradeJar17) // java 17
+            artifact(tasks.downgradeJar) // java 8
+            artifact(sourcesJar) // java 21 sources
         }
     }
 }
