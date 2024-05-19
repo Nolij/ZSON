@@ -132,7 +132,7 @@ val sourcesJar: Jar = tasks.withType<Jar>()["sourcesJar"].apply {
 }
 
 tasks.assemble {
-    dependsOn(tasks.jar, tasks["sourcesJar"])
+    dependsOn(tasks.jar, sourcesJar)
 }
 
 tasks.test {
