@@ -125,7 +125,11 @@ tasks.jar {
 }
 
 java.withSourcesJar()
-val sourcesJar: Jar = tasks.withType<Jar>()["sourcesJar"]
+val sourcesJar: Jar = tasks.withType<Jar>()["sourcesJar"].apply {
+    from(rootProject.file("LICENSE")) {
+        rename { "${it}_${rootProject.name}" }
+    }
+}
 
 tasks.assemble {
     dependsOn(tasks.jar, tasks["sourcesJar"])
