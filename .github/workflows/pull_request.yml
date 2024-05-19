@@ -24,3 +24,8 @@ jobs:
         with:
           name: ZSON
           path: "**/zson-*.jar"
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: Test Results
+          path: "build/reports/tests/**"
