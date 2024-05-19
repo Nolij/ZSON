@@ -6,6 +6,7 @@ plugins {
     id("maven-publish")
     id("org.ajoberstar.grgit")
     id("com.github.breadmoirai.github-release")
+    id("xyz.wagyourtail.jvmdowngrader")
 }
 
 operator fun String.invoke(): String = rootProject.properties[this] as? String ?: error("Property $this not found")
@@ -13,6 +14,7 @@ operator fun String.invoke(): String = rootProject.properties[this] as? String ?
 group = "maven_group"()
 base.archivesName = "project_name"()
 
+//region Git
 enum class ReleaseChannel(val suffix: String? = null) {
     DEV_BUILD("dev"),
     RELEASE,
@@ -81,6 +83,8 @@ if (releaseChannel.suffix != null) {
 val versionString = "${minorVersion}.${patchAndSuffix}"
 val versionTagName = "${releaseTagPrefix}${versionString}"
 
+//endregion
+
 version = versionString
 println("ZSON Version: $versionString")
 
@@ -90,10 +94,13 @@ repositories {
 
 dependencies {
     compileOnly("org.jetbrains:annotations:${"jetbrains_annotations_version"()}")
-    compileOnly("com.pkware.jabel:jabel-javac-plugin:${"jabel_version"()}", ::annotationProcessor)
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.0-M1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.downgradeJar {
+    downgradeTo = JavaVersion.VERSION_1_8
 }
 
 tasks.jar {
@@ -103,6 +110,8 @@ tasks.jar {
     from(rootProject.file("LICENSE")) {
         rename { "${it}_${rootProject.name}" }
     }
+
+    finalizedBy(tasks.downgradeJar)
 }
 
 val sourcesJar = tasks.register<Jar>("sourcesJar") {
@@ -134,7 +143,6 @@ tasks.withType<GenerateModuleMetadata> {
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
     sourceCompatibility = "21"
-    options.release = 8
     javaCompiler = javaToolchains.compilerFor {
         languageVersion = JavaLanguageVersion.of(21)
     }

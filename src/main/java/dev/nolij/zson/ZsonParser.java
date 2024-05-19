@@ -321,6 +321,7 @@ public final class ZsonParser {
 	 * Parses a JSON number from the given {@link Reader}. The number can be a floating-point number less than {@link Double#MAX_VALUE},
 	 * an integer between -2<sup>{@code Integer.MAX_VALUE}</sup> and 2<sup>{@code Integer.MAX_VALUE}</sup>
 	 * (will try to parse as an {@link Integer} or {@link Long} first before parsing as a {@link BigInteger}),
+	 * or a special value (NaN, Infinity, -Infinity).
 	 *
 	 * @param input The reader to parse the number from
 	 * @param start The first character of the number
