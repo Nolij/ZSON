@@ -1,3 +1,4 @@
+import xyz.wagyourtail.jvmdg.gradle.task.DowngradeJar
 import java.time.ZonedDateTime
 
 plugins {
@@ -100,7 +101,16 @@ dependencies {
 }
 
 tasks.downgradeJar {
+    dependsOn(tasks.jar)
     downgradeTo = JavaVersion.VERSION_1_8
+    archiveClassifier = "downgraded-8"
+}
+
+val downgradeJar17 = tasks.register<DowngradeJar>("downgradeJar17") {
+    dependsOn(tasks.jar)
+    downgradeTo = JavaVersion.VERSION_17
+    inputFile = tasks.jar.get().archiveFile
+    archiveClassifier = "downgraded-17"
 }
 
 tasks.jar {
@@ -111,25 +121,14 @@ tasks.jar {
         rename { "${it}_${rootProject.name}" }
     }
 
-    finalizedBy(tasks.downgradeJar)
+    finalizedBy(tasks.downgradeJar, downgradeJar17)
 }
 
-val sourcesJar = tasks.register<Jar>("sourcesJar") {
-    group = "build"
-
-    archiveClassifier = "sources"
-    isPreserveFileTimestamps = false
-    isReproducibleFileOrder = true
-
-    from(rootProject.file("LICENSE")) {
-        rename { "${it}_${rootProject.name}" }
-    }
-
-    from(sourceSets.main.get().allSource) { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
-}
+java.withSourcesJar()
+val sourcesJar: Jar = tasks.withType<Jar>()["sourcesJar"]
 
 tasks.assemble {
-    dependsOn(tasks.jar, sourcesJar)
+    dependsOn(tasks.jar, tasks["sourcesJar"])
 }
 
 tasks.test {
@@ -153,7 +152,7 @@ githubRelease {
     setTagName(versionTagName)
     setTargetCommitish("master")
     setReleaseName(versionString)
-    setReleaseAssets(tasks.jar.get().archiveFile, sourcesJar.get().archiveFile)
+    setReleaseAssets(tasks.jar.get().archiveFile, sourcesJar.archiveFile)
 }
 
 tasks.githubRelease {

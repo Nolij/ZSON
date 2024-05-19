@@ -22,4 +22,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ZSON
-          path: "**/zson-*.jar"
+          path: "build/libs/zson-*.jar"

@@ -190,6 +190,7 @@ public class ZsonTest {
 		@Comment("look a comment")
 		public int wow = 42;
 		public String such = "amaze";
+
 		@Include
 		private boolean very = true;
 

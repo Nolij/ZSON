@@ -206,7 +206,7 @@ public final class Zson {
 			Comment comment = field.getAnnotation(Comment.class);
 			String commentValue = comment == null ? null : comment.value();
 			try {
-				boolean accessible = field.canAccess(object);
+				boolean accessible = field.canAccess(Modifier.isStatic(field.getModifiers()) ? null : object);
 				if (!accessible) field.setAccessible(true);
 				map.put(field.getName(), new ZsonValue(commentValue, field.get(object)));
 				if (!accessible) field.setAccessible(false);
@@ -276,7 +276,7 @@ public final class Zson {
 	private static <T> void setField(Field field, Object object, Object value) {
 		@SuppressWarnings("unchecked")
 		Class<T> type = (Class<T>) field.getType();
-		boolean accessible = field.canAccess(object);
+		boolean accessible = field.canAccess(Modifier.isStatic(field.getModifiers()) ? null : object);
 		if(!accessible) field.setAccessible(true);
 		try {
 			if(type.isPrimitive()) {
