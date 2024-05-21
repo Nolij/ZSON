@@ -93,19 +93,17 @@ This prints out:
 ZSON can serialize objects to JSON using reflection. Here's an example:
 ```java
 import dev.nolij.zson.Zson;
-import dev.nolij.zson.Comment;
-import dev.nolij.zson.Include;
-import dev.nolij.zson.Exclude;
+import dev.nolij.zson.ZsonField;
 import dev.nolij.zson.ZsonValue;
 
 public class Example {
-	@Comment("This is a comment")
+	@ZsonField(comment = "This is a comment")
 	public String key = "value";
 	
-	@Include
+	@ZsonField(include = true)
     private int number = 4;
 	
-	@Exclude
+	@ZsonField(exclude = true)
     public String excluded = "this won't be included";
 	
 	public static void main(String[] args) {
@@ -125,8 +123,8 @@ This prints out:
 }
 ```
 
-Use the `@Comment` annotation to add a comment to a field, and the `@Include` and `@Exclude` annotations to include or exclude fields from serialization.
-By default, all public fields are included, and all private fields are excluded. If they are annotated with `@Include`, static fields will be serialized but not deserialized.
+Use the `comment` parameter of the `@ZsonField` annotation to add a comment to a field, and the `include` and `exclude` parameters to include or exclude fields from serialization.
+By default, all public fields are included, and all private fields are excluded. If they are annotated with `@ZsonField(include = true)`, static fields will be serialized but not deserialized.
 
 Also see the [tests](src/test/java/ZsonTest.java) for more examples.
 

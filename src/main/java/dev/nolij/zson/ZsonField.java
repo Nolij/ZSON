@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Value {
+public @interface ZsonField {
 	String comment() default "\0";
 	boolean include() default false;
 	boolean exclude() default false;

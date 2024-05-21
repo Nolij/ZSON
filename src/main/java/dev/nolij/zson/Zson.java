@@ -186,13 +186,13 @@ public final class Zson {
 	 * Converts the given object to a JSON map. Fields of the object will be serialized in order of declaration.
 	 * Fields will not be included in the map if:
 	 * <ul>
-	 *     <li>They are static and not annotated with {@link Include @Include}</li>
+	 *     <li>They are static and not annotated with {@link ZsonField @ZsonField(include = true)}
 	 *     <li>They are transient</li>
-	 *     <li>They are not public (AKA private, protected, or package-private) and not annotated with {@link Include @Include}</li>
-	 *     <li>They are annotated with {@link Exclude @Exclude}</li>
+	 *     <li>They are not public (AKA private, protected, or package-private) and not annotated with {@link ZsonField @ZsonField(include = true)}</li>
+	 *     <li>They are annotated with {@link ZsonField @ZsonField(exclude = true)}</li>
 	 * </ul>
 	 *
-	 * Additionally, fields annotated with {@link Comment @Comment} will have their comments included in the map.
+	 * Additionally, fields annotated with {@link ZsonField @ZsonField(comment = "...")} will have their comments included in the map.
 	 * @param object the object to serialize. If null, an empty object will be returned.
 	 * @return a JSON map representing the object.
 	 */
@@ -203,7 +203,7 @@ public final class Zson {
 		Map<String, ZsonValue> map = Zson.object();
 		for (Field field : object.getClass().getDeclaredFields()) {
 			if(!shouldInclude(field, true)) continue;
-			Value value = field.getAnnotation(Value.class);
+			ZsonField value = field.getAnnotation(ZsonField.class);
 			String comment = value == null ? null : value.comment();
 			try {
 				boolean accessible = field.isAccessible();
@@ -248,12 +248,12 @@ public final class Zson {
 	 * @param field the field to check.
 	 * @param forDeserialization if true, the field is being checked for deserialization. If false, it's being checked for serialization.
 	 *                           This affects whether static fields are included: if true,
-	 *                           static fields are included if they are annotated with {@link Include @Include},
+	 *                           static fields are included if they are annotated with {@link ZsonField @ZsonField(include = true)};
 	 *                           otherwise they are not included at all.
 	 * @return true if the field should be included in a JSON map, false otherwise.
 	 */
 	private static boolean shouldInclude(Field field, boolean forDeserialization) {
-		Value value = field.getAnnotation(Value.class);
+		ZsonField value = field.getAnnotation(ZsonField.class);
 
 		int modifiers = field.getModifiers();
 		if(Modifier.isTransient(modifiers)) return false; // ignore transient fields
