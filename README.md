@@ -50,22 +50,22 @@ import java.util.Map;
 import static dev.nolij.zson.Zson.*;
 
 public class ZsonExample {
-    public static void main(String[] args) {
-        // Parse a JSON string
-        String json = "{\"key\": \"value\"}";
-        Map<String, ZsonValue> zson = ZsonParser.parseString(json);
-        System.out.println(zson.get("key")); // value
+	public static void main(String[] args) {
+		// Parse a JSON string
+		String json = "{\"key\": \"value\"}";
+		Map<String, ZsonValue> zson = ZsonParser.parseString(json);
+		System.out.println(zson.get("key")); // value
 
-        // Write a JSON string
-        ZsonWriter writer = new ZsonWriter().withIndent("  ").withExpandArrays(false);
+		// Write a JSON string
+		ZsonWriter writer = new ZsonWriter().withIndent("  ").withExpandArrays(false);
 		Map<String, ZsonValue> map = object( // Zson.object()
-                entry("key", "comment", 4),
-                entry("arr", "look, arrays work too!", array(1, 2, 3)),
-                entry("obj", "and objects!", object(
-                        entry("key", "value")
-                )),
-                entry("null", "comments can also\nbe miltiple lines", null)
-        );
+			entry("key", "comment", 4),
+			entry("arr", "look, arrays work too!", array(1, 2, 3)),
+			entry("obj", "and objects!", object(
+					entry("key", "value")
+				)),
+				entry("null", "comments can also\nbe miltiple lines", null)
+		);
 		System.out.println(jsonString);
 	}
 }
@@ -101,14 +101,14 @@ public class Example {
 	public String key = "value";
 	
 	@ZsonField(include = true)
-    private int number = 4;
+	private int number = 4;
 	
 	@ZsonField(exclude = true)
-    public String excluded = "this won't be included";
+	public String excluded = "this won't be included";
 	
 	public static void main(String[] args) {
 		Example example = new Example();
-        Map<String, ZsonValue> zson = Zson.obj2map(example);
+		Map<String, ZsonValue> zson = Zson.obj2map(example);
 		System.out.println(new ZsonWriter().stringify(zson));
 	}
 }
