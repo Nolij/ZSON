@@ -203,12 +203,12 @@ public final class Zson {
 		Map<String, ZsonValue> map = Zson.object();
 		for (Field field : object.getClass().getDeclaredFields()) {
 			if(!shouldInclude(field, true)) continue;
-			Comment comment = field.getAnnotation(Comment.class);
-			String commentValue = comment == null ? null : comment.value();
+			Value value = field.getAnnotation(Value.class);
+			String comment = value == null ? null : value.comment();
 			try {
 				boolean accessible = field.isAccessible();
 				if (!accessible) field.setAccessible(true);
-				map.put(field.getName(), new ZsonValue(commentValue, field.get(object)));
+				map.put(field.getName(), new ZsonValue("\0".equals(comment) ? null : comment, field.get(object)));
 				if (!accessible) field.setAccessible(false);
 			} catch (IllegalAccessException e) {
 				throw new RuntimeException("Failed to get field " + field.getName(), e);
@@ -253,17 +253,15 @@ public final class Zson {
 	 * @return true if the field should be included in a JSON map, false otherwise.
 	 */
 	private static boolean shouldInclude(Field field, boolean forDeserialization) {
-		Exclude exclude = field.getAnnotation(Exclude.class);
-		if (exclude != null) return false; // if field is annotated with @Exclude, ignore it no matter what
+		Value value = field.getAnnotation(Value.class);
+
 		int modifiers = field.getModifiers();
-		if(Modifier.isTransient(modifiers)) return false; // ignore transient fields too
+		if(Modifier.isTransient(modifiers)) return false; // ignore transient fields
+		boolean defaultInclude = (forDeserialization || !Modifier.isStatic(modifiers)) && Modifier.isPublic(modifiers);
 
-		Include include = field.getAnnotation(Include.class);
-
-		// include:
-		// - if it's static, only if it's for serialization
-		// - if it's not public, only if it's annotated with @Include
-		return (forDeserialization || !Modifier.isStatic(modifiers)) && (include != null || Modifier.isPublic(modifiers));
+		if(value == null) return defaultInclude;
+		if (value.exclude()) return false; // if field is explicitly excluded, ignore it
+		return defaultInclude || (forDeserialization && value.include());
 	}
 
 	/**
