@@ -12,6 +12,7 @@ import java.util.Map.Entry;
 /**
  * Static utility methods for working with JSON-like data structures.
  */
+@SuppressWarnings("deprecation")
 public final class Zson {
 
 	/**
@@ -221,7 +222,7 @@ public final class Zson {
 	 * Converts the given map to an object of the given type. The map must contain all fields of the object, but they
 	 * may be in any order. Fields will be set in order of declaration.
 	 * @param map the map to deserialize. Must not be null.
-	 * @param type the type of object to create. Must not be null.
+	 * @param type the type of object to create. Must not be null, and must have a no-args constructor.
 	 * @return a new object of the given type with fields set from the map.
 	 * @param <T> the type of object to create.
 	 */
@@ -232,8 +233,8 @@ public final class Zson {
 			T object = type.getDeclaredConstructor().newInstance();
 			for (Field field : type.getDeclaredFields()) {
 				if(!shouldInclude(field, false)) continue;
-				if (!map.containsKey(field.getName())) {
-					throw new IllegalArgumentException("Missing field " + field.getName() + " in map");
+				if(!map.containsKey(field.getName())) {
+					continue;
 				}
 				setField(field, object, map.get(field.getName()).value);
 			}
@@ -252,6 +253,7 @@ public final class Zson {
 	 *                           otherwise they are not included at all.
 	 * @return true if the field should be included in a JSON map, false otherwise.
 	 */
+	@SuppressWarnings("BooleanMethodIsAlwaysInverted")
 	private static boolean shouldInclude(Field field, boolean forDeserialization) {
 		Exclude exclude = field.getAnnotation(Exclude.class);
 		if (exclude != null) return false; // if field is annotated with @Exclude, ignore it no matter what
