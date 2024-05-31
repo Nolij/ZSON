@@ -12,6 +12,7 @@ import java.util.Map.Entry;
 /**
  * Static utility methods for working with JSON-like data structures.
  */
+@SuppressWarnings("deprecation")
 public final class Zson {
 
 	/**
@@ -249,6 +250,7 @@ public final class Zson {
 	 *                           otherwise they are not included at all.
 	 * @return true if the field should be included in a JSON map, false otherwise.
 	 */
+	@SuppressWarnings("BooleanMethodIsAlwaysInverted")
 	private static boolean shouldInclude(Field field, boolean forDeserialization) {
 		Exclude exclude = field.getAnnotation(Exclude.class);
 		if (exclude != null) return false; // if field is annotated with @Exclude, ignore it no matter what
