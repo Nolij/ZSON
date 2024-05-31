@@ -233,6 +233,9 @@ public final class Zson {
 			T object = type.getDeclaredConstructor().newInstance();
 			for (Field field : type.getDeclaredFields()) {
 				if(!shouldInclude(field, false)) continue;
+				if(!map.containsKey(field.getName())) {
+					continue;
+				}
 				setField(field, object, map.get(field.getName()).value);
 			}
 			return object;
