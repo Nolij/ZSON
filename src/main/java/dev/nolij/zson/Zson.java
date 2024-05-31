@@ -202,10 +202,7 @@ public final class Zson {
 		if(object == null) return object();
 		Map<String, ZsonValue> map = Zson.object();
 		for (Field field : object.getClass().getDeclaredFields()) {
-			if(!shouldInclude(field, true)) {
-				System.out.println("Skipping field " + field.getName() + " for serialization");
-				continue;
-			}
+			if(!shouldInclude(field, true)) continue;
 			Comment comment = field.getAnnotation(Comment.class);
 			String commentValue = comment == null ? null : comment.value();
 			try {
@@ -234,14 +231,9 @@ public final class Zson {
 		try {
 			T object = type.getDeclaredConstructor().newInstance();
 			for (Field field : type.getDeclaredFields()) {
-				if(!shouldInclude(field, false)) {
-					System.out.println("Skipping field " + field.getName() + " for deserialization");
-					continue;
-				}
+				if(!shouldInclude(field, false)) continue;
 				if (!map.containsKey(field.getName())) {
-					throw new IllegalArgumentException(
-							"Missing field " + field.getName() + " in map\n" + map
-					);
+					throw new IllegalArgumentException("Missing field " + field.getName() + " in map");
 				}
 				setField(field, object, map.get(field.getName()).value);
 			}
