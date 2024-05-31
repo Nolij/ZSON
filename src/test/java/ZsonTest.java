@@ -186,6 +186,14 @@ public class ZsonTest {
 		assertEquals(3.14, obj.pi);
 	}
 
+	@Test
+	public void testNonexistentFieldInMap() {
+		Map<String, ZsonValue> json = Map.of("such", new ZsonValue("working"));
+		TestObject obj = Zson.map2Obj(json, TestObject.class);
+		assertEquals("working", obj.such);
+		assertEquals(42, obj.wow);
+	}
+
 	public static class TestObject {
 		@Comment("look a comment")
 		public int wow = 42;
