@@ -36,14 +36,13 @@ dependencies {
 }
 ```
 </details>
+
 Replace `version` with the version of the library you want to use.
 You can find the latest version on the [releases page](https://github.com/Nolij/ZSON/releases).
 
 Then, you can use the library like so:
 ```java
-import dev.nolij.zson.Zson; // contains static methods for parsing and writing JSON
-import dev.nolij.zson.ZsonWriter; // contains methods for writing JSON
-import dev.nolij.zson.ZsonParser; // contains static methods for parsing JSON
+import dev.nolij.zson.Zson; // static helper/parsing methods, instantiate for a writer 
 import dev.nolij.zson.ZsonValue; // represents a JSON value with a comment
 import java.util.Map;
 
@@ -53,18 +52,18 @@ public class ZsonExample {
     public static void main(String[] args) {
         // Parse a JSON string
         String json = "{\"key\": \"value\"}";
-        Map<String, ZsonValue> zson = ZsonParser.parseString(json);
+        Map<String, ZsonValue> zson = Zson.parseString(json);
         System.out.println(zson.get("key")); // value
 
         // Write a JSON string
-        ZsonWriter writer = new ZsonWriter().withIndent("  ").withExpandArrays(false);
+        Zson writer = new Zson().withIndent("  ").withExpandArrays(false);
 		Map<String, ZsonValue> map = object( // Zson.object()
                 entry("key", "comment", 4),
                 entry("arr", "look, arrays work too!", array(1, 2, 3)),
                 entry("obj", "and objects!", object(
                         entry("key", "value")
                 )),
-                entry("null", "comments can also\nbe miltiple lines", null)
+                entry("null", "comments can also\nbe multiple lines", null)
         );
 		System.out.println(jsonString);
 	}
@@ -111,7 +110,7 @@ public class Example {
 	public static void main(String[] args) {
 		Example example = new Example();
         Map<String, ZsonValue> zson = Zson.obj2map(example);
-		System.out.println(new ZsonWriter().stringify(zson));
+		System.out.println(new Zson().stringify(zson));
 	}
 }
 ```
