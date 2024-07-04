@@ -1,12 +1,8 @@
 import org.junit.jupiter.api.Test;
 
-import dev.nolij.zson.Comment;
-import dev.nolij.zson.Exclude;
-import dev.nolij.zson.Include;
+import dev.nolij.zson.ZsonField;
 import dev.nolij.zson.Zson;
-import dev.nolij.zson.ZsonParser;
 import dev.nolij.zson.ZsonValue;
-import dev.nolij.zson.ZsonWriter;
 
 import java.util.List;
 import java.util.Map;
@@ -16,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ZsonTest {
 	@Test
 	public void testReadWrite() {
-		ZsonWriter writer = new ZsonWriter()
+		Zson writer = new Zson()
 				.withExpandArrays(false)
 				.withIndent("  ")
 				.withQuoteKeys(true);
@@ -63,14 +59,14 @@ public class ZsonTest {
 
 		assertEquals(expected, json);
 
-		Map<String, ZsonValue> parsed = ZsonParser.parseString(json);
+		Map<String, ZsonValue> parsed = Zson.parseString(json);
 
 		assertEquals(zsonMap, parsed);
 	}
 
 	@Test
 	public void testInvalidRead() {
-		assertThrows(IllegalArgumentException.class, () -> ZsonParser.parseString("wow look such invalid"));
+		assertThrows(IllegalArgumentException.class, () -> Zson.parseString("wow look such invalid"));
 	}
 
 	@Test
@@ -98,7 +94,7 @@ public class ZsonTest {
 		}
 		""";
 
-		Map<String, ZsonValue> map = ZsonParser.parseString(json);
+		Map<String, ZsonValue> map = Zson.parseString(json);
 
 		@SuppressWarnings("unchecked")
 		List<Object> arr = (List<Object>) map.get("arr").value;
@@ -141,7 +137,7 @@ public class ZsonTest {
 			"neginf": -Infinity,
 		}""";
 
-		Map<String, ZsonValue> map = ZsonParser.parseString(json);
+		Map<String, ZsonValue> map = Zson.parseString(json);
 
 		assertEquals(42, map.get("int").value);
 		assertEquals(3.14, map.get("float").value);
@@ -162,7 +158,7 @@ public class ZsonTest {
 			"inf": Infinity,
 			"w": NaN,
 			"neginf": -Infinity,
-		}""", new ZsonWriter().stringify(map));
+		}""", new Zson().stringify(map));
 	}
 
 	@Test
@@ -177,7 +173,7 @@ public class ZsonTest {
 			"constant": "wow",
 		}""";
 
-		assertEquals(expected, new ZsonWriter().stringify(json));
+		assertEquals(expected, new Zson().stringify(json));
 
 		TestObject obj = Zson.map2Obj(json, TestObject.class);
 		assertEquals(42, obj.wow);
@@ -195,17 +191,17 @@ public class ZsonTest {
 	}
 
 	public static class TestObject {
-		@Comment("look a comment")
+		@ZsonField(comment = "look a comment")
 		public int wow = 42;
 		public String such = "amaze";
 
-		@Include
+		@ZsonField(include = true)
 		private boolean very = true;
 
-		@Exclude
+		@ZsonField(exclude = true)
 		public double pi = 3.14;
 
-		@Include
+		@ZsonField(include = true)
 		public static final String constant = "wow";
 	}
 }
