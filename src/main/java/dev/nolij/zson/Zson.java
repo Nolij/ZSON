@@ -194,13 +194,13 @@ public final class Zson {
 	 * Converts the given object to a JSON map. Fields of the object will be serialized in order of declaration.
 	 * Fields will not be included in the map if:
 	 * <ul>
-	 *     <li>They are static and not annotated with {@link Include @Include}</li>
+	 *     <li>They are static and not annotated with {@link ZsonField @ZsonField(include = true)}
 	 *     <li>They are transient</li>
-	 *     <li>They are not public (AKA private, protected, or package-private) and not annotated with {@link Include @Include}</li>
-	 *     <li>They are annotated with {@link Exclude @Exclude}</li>
+	 *     <li>They are not public (AKA private, protected, or package-private) and not annotated with {@link ZsonField @ZsonField(include = true)}</li>
+	 *     <li>They are annotated with {@link ZsonField @ZsonField(exclude = true)}</li>
 	 * </ul>
 	 *
-	 * Additionally, fields annotated with {@link Comment @Comment} will have their comments included in the map.
+	 * Additionally, fields annotated with {@link ZsonField @ZsonField(comment = "...")} will have their comments included in the map.
 	 * @param object the object to serialize. If null, an empty object will be returned.
 	 * @return a JSON map representing the object.
 	 */
@@ -211,12 +211,12 @@ public final class Zson {
 		Map<String, ZsonValue> map = Zson.object();
 		for (Field field : object.getClass().getDeclaredFields()) {
 			if(!shouldInclude(field, true)) continue;
-			Comment comment = field.getAnnotation(Comment.class);
-			String commentValue = comment == null ? null : comment.value();
+			ZsonField value = field.getAnnotation(ZsonField.class);
+			String comment = value == null ? null : value.comment();
 			try {
 				boolean accessible = field.isAccessible();
 				if (!accessible) field.setAccessible(true);
-				map.put(field.getName(), new ZsonValue(commentValue, field.get(object)));
+				map.put(field.getName(), new ZsonValue("\0".equals(comment) ? null : comment, field.get(object)));
 				if (!accessible) field.setAccessible(false);
 			} catch (IllegalAccessException e) {
 				throw new RuntimeException("Failed to get field " + field.getName(), e);
@@ -256,23 +256,21 @@ public final class Zson {
 	 * @param field the field to check.
 	 * @param forDeserialization if true, the field is being checked for deserialization. If false, it's being checked for serialization.
 	 *                           This affects whether static fields are included: if true,
-	 *                           static fields are included if they are annotated with {@link Include @Include},
+	 *                           static fields are included if they are annotated with {@link ZsonField @ZsonField(include = true)};
 	 *                           otherwise they are not included at all.
 	 * @return true if the field should be included in a JSON map, false otherwise.
 	 */
 	@SuppressWarnings("BooleanMethodIsAlwaysInverted")
 	private static boolean shouldInclude(Field field, boolean forDeserialization) {
-		Exclude exclude = field.getAnnotation(Exclude.class);
-		if (exclude != null) return false; // if field is annotated with @Exclude, ignore it no matter what
+		ZsonField value = field.getAnnotation(ZsonField.class);
+
 		int modifiers = field.getModifiers();
-		if(Modifier.isTransient(modifiers)) return false; // ignore transient fields too
+		if(Modifier.isTransient(modifiers)) return false; // ignore transient fields
+		boolean defaultInclude = (forDeserialization || !Modifier.isStatic(modifiers)) && Modifier.isPublic(modifiers);
 
-		Include include = field.getAnnotation(Include.class);
-
-		// include:
-		// - if it's static, only if it's for serialization
-		// - if it's not public, only if it's annotated with @Include
-		return (forDeserialization || !Modifier.isStatic(modifiers)) && (include != null || Modifier.isPublic(modifiers));
+		if(value == null) return defaultInclude;
+		if (value.exclude()) return false; // if field is explicitly excluded, ignore it
+		return defaultInclude || (forDeserialization && value.include());
 	}
 
 	/**

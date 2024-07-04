@@ -49,22 +49,22 @@ import java.util.Map;
 import static dev.nolij.zson.Zson.*;
 
 public class ZsonExample {
-    public static void main(String[] args) {
-        // Parse a JSON string
-        String json = "{\"key\": \"value\"}";
-        Map<String, ZsonValue> zson = Zson.parseString(json);
-        System.out.println(zson.get("key")); // value
+	public static void main(String[] args) {
+		// Parse a JSON string
+		String json = "{\"key\": \"value\"}";
+		Map<String, ZsonValue> zson = Zson.parseString(json);
+		System.out.println(zson.get("key")); // value
 
-        // Write a JSON string
-        Zson writer = new Zson().withIndent("  ").withExpandArrays(false);
+		// Write a JSON string
+		Zson writer = new Zson().withIndent("  ").withExpandArrays(false);
 		Map<String, ZsonValue> map = object( // Zson.object()
-                entry("key", "comment", 4),
-                entry("arr", "look, arrays work too!", array(1, 2, 3)),
-                entry("obj", "and objects!", object(
-                        entry("key", "value")
-                )),
-                entry("null", "comments can also\nbe multiple lines", null)
-        );
+			entry("key", "comment", 4),
+			entry("arr", "look, arrays work too!", array(1, 2, 3)),
+			entry("obj", "and objects!", object(
+					entry("key", "value")
+				)),
+				entry("null", "comments can also\nbe multiple lines", null)
+		);
 		System.out.println(jsonString);
 	}
 }
@@ -92,24 +92,22 @@ This prints out:
 ZSON can serialize objects to JSON using reflection. Here's an example:
 ```java
 import dev.nolij.zson.Zson;
-import dev.nolij.zson.Comment;
-import dev.nolij.zson.Include;
-import dev.nolij.zson.Exclude;
+import dev.nolij.zson.ZsonField;
 import dev.nolij.zson.ZsonValue;
 
 public class Example {
-	@Comment("This is a comment")
+	@ZsonField(comment = "This is a comment")
 	public String key = "value";
 	
-	@Include
-    private int number = 4;
+	@ZsonField(include = true)
+	private int number = 4;
 	
-	@Exclude
-    public String excluded = "this won't be included";
+	@ZsonField(exclude = true)
+	public String excluded = "this won't be included";
 	
 	public static void main(String[] args) {
 		Example example = new Example();
-        Map<String, ZsonValue> zson = Zson.obj2map(example);
+		Map<String, ZsonValue> zson = Zson.obj2map(example);
 		System.out.println(new Zson().stringify(zson));
 	}
 }
@@ -124,8 +122,8 @@ This prints out:
 }
 ```
 
-Use the `@Comment` annotation to add a comment to a field, and the `@Include` and `@Exclude` annotations to include or exclude fields from serialization.
-By default, all public fields are included, and all private fields are excluded. If they are annotated with `@Include`, static fields will be serialized but not deserialized.
+Use the `comment` parameter of the `@ZsonField` annotation to add a comment to a field, and the `include` and `exclude` parameters to include or exclude fields from serialization.
+By default, all public fields are included, and all private fields are excluded. If they are annotated with `@ZsonField(include = true)`, static fields will be serialized but not deserialized.
 
 Also see the [tests](src/test/java/ZsonTest.java) for more examples.
 

@@ -1,8 +1,6 @@
 import org.junit.jupiter.api.Test;
 
-import dev.nolij.zson.Comment;
-import dev.nolij.zson.Exclude;
-import dev.nolij.zson.Include;
+import dev.nolij.zson.ZsonField;
 import dev.nolij.zson.Zson;
 import dev.nolij.zson.ZsonValue;
 
@@ -193,17 +191,17 @@ public class ZsonTest {
 	}
 
 	public static class TestObject {
-		@Comment("look a comment")
+		@ZsonField(comment = "look a comment")
 		public int wow = 42;
 		public String such = "amaze";
 
-		@Include
+		@ZsonField(include = true)
 		private boolean very = true;
 
-		@Exclude
+		@ZsonField(exclude = true)
 		public double pi = 3.14;
 
-		@Include
+		@ZsonField(include = true)
 		public static final String constant = "wow";
 	}
 }
