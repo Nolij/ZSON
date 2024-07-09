@@ -299,7 +299,7 @@ public final class Zson {
 				}
 			} else {
 				if(type.isEnum()) {
-					field.set(object, Enum.valueOf((Class<Enum>) type, value.toString()));
+					field.set(object, Enum.valueOf((Class<Enum>) type, (String) value));
 				} else {
 					field.set(object, type.cast(value));
 				}
