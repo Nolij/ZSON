@@ -89,7 +89,7 @@ public class ZsonTest {
 			"inf": Infinity,
 			"neginf": -Infinity,
 			"nan": NaN,
-			"multiline-string": "wow look\
+			"multiline-string": "wow look\\
 			a multiline string",
 		}
 		""";
@@ -118,9 +118,8 @@ public class ZsonTest {
 		assertNull(map.get("nil").value);
 		assertEquals(Double.POSITIVE_INFINITY, map.get("inf").value);
 		assertEquals(Double.NEGATIVE_INFINITY, map.get("neginf").value);
-		assertTrue(Double.isNaN((Double) map.get("nan").value));
-		// TODO: re-enable after fixing multi-line strings
-//		assertEquals("wow look \na multiline string", map.get("multiline-string").value);
+		assertTrue(Double.isNaN((double) map.get("nan").value));
+		assertEquals("wow look\n\ta multiline string", map.get("multiline-string").value);
 	}
 
 	@Test
@@ -171,6 +170,7 @@ public class ZsonTest {
 			"such": "amaze",
 			"very": true,
 			"constant": "wow",
+			"testEnum": "ONE",
 		}""";
 
 		assertEquals(expected, new Zson().stringify(json));
@@ -180,6 +180,7 @@ public class ZsonTest {
 		assertEquals("amaze", obj.such);
 		assertTrue(obj.very);
 		assertEquals(3.14, obj.pi);
+		assertEquals(TestEnum.ONE, obj.testEnum);
 	}
 
 	@Test
@@ -203,5 +204,11 @@ public class ZsonTest {
 
 		@ZsonField(include = true)
 		public static final String constant = "wow";
+
+		public TestEnum testEnum = TestEnum.ONE;
+	}
+
+	public enum TestEnum {
+		ONE, TWO, THREE
 	}
 }
