@@ -173,7 +173,11 @@ public class ZsonTest {
 			"testEnum": "ONE",
 		}""";
 
-		assertEquals(expected, new Zson().stringify(json));
+		String actual = new Zson().stringify(json);
+
+		assertEquals(expected, actual);
+
+		json = Zson.parseString(actual);
 
 		TestObject obj = Zson.map2Obj(json, TestObject.class);
 		assertEquals(42, obj.wow);

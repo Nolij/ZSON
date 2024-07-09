@@ -341,7 +341,7 @@ public final class Zson {
 	@Contract(pure = true)
 	public static <T> T parseString(@NotNull String serialized) {
 		try {
-			return parse(new BufferedReader(new StringReader(serialized)));
+			return parse(new StringReader(serialized));
 		} catch (IOException e) {
 			throw new IllegalArgumentException(e);
 		}
