@@ -18,7 +18,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.Map.Entry;
 
-@SuppressWarnings({"deprecation", "UnstableApiUsage"})
+@SuppressWarnings({"deprecation", "UnstableApiUsage", "unused"})
 public final class Zson {
 	//region Helper Methods
 
