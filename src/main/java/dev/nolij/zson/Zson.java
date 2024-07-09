@@ -18,7 +18,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.Map.Entry;
 
-@SuppressWarnings({"deprecation", "UnstableApiUsage"})
+@SuppressWarnings({"deprecation", "UnstableApiUsage", "unused"})
 public final class Zson {
 	//region Helper Methods
 
@@ -280,8 +280,8 @@ public final class Zson {
 	 * @param value the value to set the field to. May be null. If primitive, will be an int or double.
 	 * @param <T> the type of the field.
 	 */
+	@SuppressWarnings({"unchecked", "rawtypes"})
 	private static <T> void setField(Field field, Object object, Object value) {
-		@SuppressWarnings("unchecked")
 		Class<T> type = (Class<T>) field.getType();
 		boolean accessible = field.isAccessible();
 		if(!accessible) field.setAccessible(true);
@@ -298,7 +298,11 @@ public final class Zson {
 					case "char" -> field.setChar(object, (char) value);
 				}
 			} else {
-				field.set(object, type.cast(value));
+				if(type.isEnum()) {
+					field.set(object, Enum.valueOf((Class<Enum>) type, (String) value));
+				} else {
+					field.set(object, type.cast(value));
+				}
 			}
 		} catch (Exception e) {
 			throw new AssertionError(
@@ -337,7 +341,7 @@ public final class Zson {
 	@Contract(pure = true)
 	public static <T> T parseString(@NotNull String serialized) {
 		try {
-			return parse(new BufferedReader(new StringReader(serialized)));
+			return parse(new StringReader(serialized));
 		} catch (IOException e) {
 			throw new IllegalArgumentException(e);
 		}
@@ -929,6 +933,8 @@ public final class Zson {
 				output.append(indent);
 
 			return output.append("]").toString();
+		} else if(value instanceof Enum<?> enumValue) {
+			return '"' + enumValue.name() + '"';
 		}
 
 		throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getName());
