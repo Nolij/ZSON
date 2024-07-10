@@ -8,7 +8,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static dev.nolij.zson.Zson.*;
 
+@SuppressWarnings({"unused", "DataFlowIssue", "FieldMayBeFinal"})
 public class ZsonTest {
 	@Test
 	public void testReadWrite() {
@@ -21,14 +23,14 @@ public class ZsonTest {
 		zsonMap.put("name", new ZsonValue("The name of the person\nlook, a second line!", "John Doe"));
 		zsonMap.put("age", new ZsonValue("The age of the person", 30));
 		zsonMap.put("address",  new ZsonValue("The address of the person", Zson.object(
-				Zson.entry("street", "The street of the address", "123 Main St"),
-				Zson.entry("city", "The city of the address", "Springfield"),
-				Zson.entry("state", "The state of the address", "IL"),
-				Zson.entry("zip", "The zip code of the address", 62701)
+				entry("street", "The street of the address", "123 Main St"),
+				entry("city", "The city of the address", "Springfield"),
+				entry("state", "The state of the address", "IL"),
+				entry("zip", "The zip code of the address", 62701)
 		)));
 		zsonMap.put("phoneNumbers",  new ZsonValue("The phone numbers of the person", Zson.object(
-				Zson.entry("home", "217-555-1234"),
-				Zson.entry("cell", "217-555-5678")
+				entry("home", "217-555-1234"),
+				entry("cell", "217-555-5678")
 		)));
 		String json = writer.stringify(zsonMap);
 
@@ -102,12 +104,12 @@ public class ZsonTest {
 		assertEquals(2, arr.get(1));
 		assertEquals(3, arr.get(2));
 
-		Map<String, ZsonValue> obj = Zson.object(
-			Zson.entry("a", 1),
-			Zson.entry("b", "2"),
-			Zson.entry("c", Zson.object(
-				Zson.entry("d", 3),
-				Zson.entry("e", Zson.array(4, 5, 6))
+		Map<String, ZsonValue> obj = object(
+			entry("a", 1),
+			entry("b", "2"),
+			entry("c", object(
+				entry("d", 3),
+				entry("e", array(4, 5, 6))
 			))
 		);
 		assertEquals(obj, map.get("obj").value);
@@ -195,6 +197,17 @@ public class ZsonTest {
 		assertEquals(42, obj.wow);
 	}
 
+	@Test
+	public void testPrimitiveConversion() {
+		Map<String, ZsonValue> json = object(
+			entry("f", 1),
+			entry("d", 1)
+		);
+		AllTypes obj = Zson.map2Obj(json, AllTypes.class);
+		assertEquals(1, obj.f);
+		assertEquals(1, obj.d);
+	}
+
 	public static class TestObject {
 		@ZsonField(comment = "look a comment")
 		public int wow = 42;
@@ -210,6 +223,19 @@ public class ZsonTest {
 		public static final String constant = "wow";
 
 		public TestEnum testEnum = TestEnum.ONE;
+	}
+
+	public static class AllTypes {
+		public boolean bool;
+		public byte b;
+		public short s;
+		public int i;
+		public long l;
+		public float f;
+		public double d;
+		public char c;
+		public String str;
+		public TestEnum e;
 	}
 
 	public enum TestEnum {
