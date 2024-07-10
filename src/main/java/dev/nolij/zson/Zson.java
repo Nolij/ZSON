@@ -289,12 +289,12 @@ public final class Zson {
 			if(type.isPrimitive()) {
 				switch (type.getName()) {
 					case "boolean" -> field.setBoolean(object, (boolean) value);
-					case "short" -> field.setShort(object, (short) (int) value);
-					case "int" -> field.setInt(object, (int) value);
-					case "float" -> field.setFloat(object, (float) (double) value);
-					case "double" -> field.setDouble(object, (double) value);
-					case "long" -> field.setLong(object, (long) value);
-					case "byte" -> field.setByte(object, (byte) (int) value);
+					case "short" -> field.setShort(object, ((Number) value).shortValue());
+					case "int" -> field.setInt(object, ((Number) value).intValue());
+					case "float" -> field.setFloat(object, ((Number) value).floatValue());
+					case "double" -> field.setDouble(object, ((Number) value).doubleValue());
+					case "long" -> field.setLong(object, ((Number) value).longValue());
+					case "byte" -> field.setByte(object, ((Number) value).byteValue());
 					case "char" -> field.setChar(object, (char) value);
 				}
 			} else {
