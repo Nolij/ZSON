@@ -199,13 +199,16 @@ public class ZsonTest {
 
 	@Test
 	public void testPrimitiveConversion() {
-		Map<String, ZsonValue> json = object(
-			entry("f", 1),
-			entry("d", 1)
-		);
+		Map<String, ZsonValue> json = Zson.parseString("""
+		{
+			"f": 1,
+			"d": 2,
+		}""");
+		assertEquals(1, json.get("f").value);
+		assertEquals(2, json.get("d").value);
 		AllTypes obj = Zson.map2Obj(json, AllTypes.class);
 		assertEquals(1, obj.f);
-		assertEquals(1, obj.d);
+		assertEquals(2, obj.d);
 	}
 
 	public static class TestObject {
