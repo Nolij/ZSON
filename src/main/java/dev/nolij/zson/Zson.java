@@ -70,6 +70,16 @@ public final class Zson {
 		return list;
 	}
 
+	public static <E extends Enum<E>> void convertEnum(Map<String, ZsonValue> json, String key, Class<E> enumClass) {
+		ZsonValue value = json.get(key);
+		if(value == null) return;
+		if(value.value instanceof String s) {
+			json.put(key, new ZsonValue(value.comment, Enum.valueOf(enumClass, s)));
+		} else if(!enumClass.isInstance(value.value)) {
+			throw new IllegalArgumentException("Expected string, got " + value.value);
+		}
+	}
+
 	/**
 	 * "Un-escapes" a string by replacing escape sequences with their actual characters.
 	 * @param string the string to un-escape. May be null.
@@ -298,11 +308,11 @@ public final class Zson {
 					case "char" -> field.setChar(object, (char) value);
 				}
 			} else {
-				if(type.isEnum()) {
-					field.set(object, Enum.valueOf((Class<Enum>) type, (String) value));
-				} else {
-					field.set(object, type.cast(value));
+				Object finalValue = value;
+				if (type.isEnum() && value instanceof String) {
+					finalValue = Enum.valueOf((Class<Enum>) type, (String) value);
 				}
+				field.set(object, finalValue);
 			}
 		} catch (Exception e) {
 			throw new AssertionError(

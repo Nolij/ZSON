@@ -262,6 +262,34 @@ public class ZsonTest {
 		)));
 	}
 
+	@Test
+	public void testUnquotedKeys() {
+		TestObject obj = new TestObject();
+		obj.testEnum = TestEnum.TWO;
+		Map<String, ZsonValue> json = obj2Map(obj);
+		String expected = """
+		{
+			// look a comment
+			wow: 42,
+			such: "amaze",
+			very: true,
+			constant: "wow",
+			testEnum: "TWO",
+		}""";
+
+		String actual = new Zson().withQuoteKeys(false).stringify(json);
+
+		assertEquals(expected, actual);
+
+		Map<String, ZsonValue> parsed = parseString(actual);
+		convertEnum(parsed, "testEnum", TestEnum.class);
+		assertEquals(json, parsed);
+
+		TestObject obj2 = map2Obj(parsed, TestObject.class);
+
+		assertEquals(obj, obj2);
+	}
+
 	public static class TestObject {
 		@ZsonField(comment = "look a comment")
 		public int wow = 42;
@@ -277,6 +305,17 @@ public class ZsonTest {
 		public static final String constant = "wow";
 
 		public TestEnum testEnum = TestEnum.ONE;
+
+		@Override
+		public boolean equals(Object obj) {
+			if (obj == this) return true;
+			if (!(obj instanceof TestObject other)) return false;
+			return wow == other.wow
+				   && such.equals(other.such)
+				   && very == other.very
+				   && pi == other.pi
+				   && testEnum == other.testEnum;
+		}
 	}
 
 	public static class AllTypes {
