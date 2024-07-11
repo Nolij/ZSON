@@ -256,6 +256,10 @@ public class ZsonTest {
 
 		json = "/**/[/**/1/**/,\"str\"  ,/**/\t7]";
 		assertEquals(parseString(json), array(1, "str", 7));
+
+		assertThrows(IllegalArgumentException.class, () -> new Zson().stringify(object(
+			entry(null, 1)
+		)));
 	}
 
 	public static class TestObject {

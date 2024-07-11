@@ -27,7 +27,7 @@ public final class Zson {
 	 */
 	@NotNull
 	@Contract("_, _, _ -> new")
-	public static Map.Entry<String, ZsonValue> entry(@Nullable String key, @Nullable String comment, @Nullable Object value) {
+	public static Map.Entry<String, ZsonValue> entry(@NotNull String key, @Nullable String comment, @Nullable Object value) {
 		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(comment, value));
 	}
 
@@ -36,7 +36,7 @@ public final class Zson {
 	 */
 	@NotNull
 	@Contract(value = "_, _ -> new", pure = true)
-	public static Map.Entry<String, ZsonValue> entry(@Nullable String key, @Nullable Object value) {
+	public static Map.Entry<String, ZsonValue> entry(@NotNull String key, @Nullable Object value) {
 		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(value));
 	}
 
@@ -455,7 +455,7 @@ public final class Zson {
 				key = switch (ch) {
 					case '"', '\'' -> Zson.unescape(parseString(input, (char) ch));
 					default -> {
-						if (Character.isLetter(ch) || ch == '_' || ch == '$' || ch == '\\') {
+						if (Character.isJavaIdentifierStart(ch) || ch == '\\') {
 							yield parseIdentifier(input, ch);
 						} else {
 							throw unexpected(ch);
@@ -906,7 +906,6 @@ public final class Zson {
 		output.append("{\n");
 
 		for (var entry : data.entrySet()) {
-			String key = entry.getKey();
 			ZsonValue zv = entry.getValue();
 			String comment = zv.comment;
 
@@ -924,7 +923,7 @@ public final class Zson {
 			if (quoteKeys)
 				output.append('"');
 
-			output.append(key);
+			output.append(checkIdentifier(entry.getKey()));
 			if (quoteKeys)
 				output.append('"');
 
@@ -932,6 +931,24 @@ public final class Zson {
 		}
 
 		output.append("}");
+	}
+
+	/**
+	 * Checks if the given string is a valid identifier.
+	 * @param key The string to check.
+	 * @return {@code true} if the string is a valid identifier, {@code false} otherwise.
+	 * @see #isIdentifierChar(int)
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.6">ECMAScript 5.1 §7.6</a>
+	 */
+	private String checkIdentifier(String key) {
+		if(key == null || key.isEmpty()) throw new IllegalArgumentException("Key cannot be null or empty");
+		int c = key.charAt(0);
+		if(!Character.isJavaIdentifierStart(c) && c != '\\') throw new IllegalArgumentException("Key must start with a valid identifier character: " + key.charAt(0));
+		for (int i = 1; i < key.length(); i++) {
+			if(!isIdentifierChar(key.charAt(i))) throw new IllegalArgumentException("Key must be a valid Java identifier: " + key);
+		}
+
+		return key;
 	}
 
 	/**
