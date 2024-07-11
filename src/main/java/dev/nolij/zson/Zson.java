@@ -456,7 +456,7 @@ public final class Zson {
 					case '"', '\'' -> Zson.unescape(parseString(input, (char) ch));
 					default -> {
 						if (Character.isLetter(ch) || ch == '_' || ch == '$' || ch == '\\') {
-							yield parseIdentifier(input, (char) ch);
+							yield parseIdentifier(input, ch);
 						} else {
 							throw unexpected(ch);
 						}
@@ -569,16 +569,29 @@ public final class Zson {
 	 * @return The parsed identifier
 	 * @throws IOException If an I/O error occurs
 	 */
+	// TODO: handle multi-character escapes and comments between the identifier and the colon (like "a/*comment*/:1")
 	@Contract(mutates = "param1")
-	private static String parseIdentifier(Reader input, char start) throws IOException {
+	private static String parseIdentifier(Reader input, int start) throws IOException {
 		var output = new StringBuilder();
-		output.append(start);
+		boolean escaped = start == '\\';
+
+		if(!escaped)
+			output.append((char) start);
 
 		int c;
 		input.mark(1);
 		while ((c = input.read()) != -1) {
-			// TODO: verify this works properly... https://262.ecma-international.org/5.1/#sec-7.6
-			if (!Character.isWhitespace(c)) {
+			if(escaped) {
+				if(c == 'n' || c == 'r') {
+					throw unexpected(c);
+				}
+				output.append(unescape("\\" + (char) c));
+				input.mark(1);
+				escaped = false;
+			} else if (c == '\\') {
+				input.mark(1);
+				escaped = true;
+			} else if (isIdentifierChar(c)) {
 				input.mark(1);
 				output.append(Character.toChars(c));
 			} else {
@@ -588,6 +601,35 @@ public final class Zson {
 		}
 
 		throw unexpectedEOF();
+	}
+
+	/**
+	 * Checks if the given character is a valid EMCAScript <i>IdentifierName</i> character.
+	 * This is true if the character is an underscore ({@code _}), a dollar sign ({@code $}),
+	 * or a character in one of the following Unicode categories:
+	 * <ul>
+	 *     <li>Uppercase letter (Lu)</li>
+	 *     <li>Lowercase letter (Ll)</li>
+	 *     <li>Titlecase letter (Lt)</li>
+	 *     <li>Modifier letter (Lm)</li>
+	 *     <li>Other letter (Lo)</li>
+	 *     <li>Letter Number (Nl)</li>
+	 *     <li>Non-spacing mark (Mn)</li>
+	 *     <li>Combining spacing mark (Mc)</li>
+	 *     <li>Decimal number (Nd)</li>
+	 *     <li>Connector punctuation (Pc)</li>
+	 * </ul>
+	 * @param c the code point to check
+	 * @return {@code true} if the character is a valid identifier character, {@code false} otherwise
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.6">ECMAScript 5.1 §7.6</a>
+	 */
+	private static boolean isIdentifierChar(int c) {
+		if(c == '_' || c == '$') return true;
+		int type = Character.getType(c);
+		return type == Character.UPPERCASE_LETTER || type == Character.LOWERCASE_LETTER || type == Character.TITLECASE_LETTER ||
+			type == Character.MODIFIER_LETTER || type == Character.OTHER_LETTER || type == Character.LETTER_NUMBER ||
+			type == Character.NON_SPACING_MARK || type == Character.COMBINING_SPACING_MARK || type == Character.DECIMAL_DIGIT_NUMBER ||
+			type == Character.CONNECTOR_PUNCTUATION;
 	}
 
 	/**

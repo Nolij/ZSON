@@ -211,6 +211,43 @@ public class ZsonTest {
 		assertEquals(2, obj.d);
 	}
 
+	@Test
+	public void testFunkyFormatting() {
+		String json = """
+		{"hmm": true,
+											"constant":false,a:   "seven"}""";
+
+		assertEquals(parseString(json), object(
+			entry("hmm", true),
+			entry("constant", false),
+			entry("a", "seven")
+		));
+
+		json = """
+				{
+			unquoted: "key",
+			"num": 2.2,
+		\\bee\\f: "yum" // comment
+		 }""";
+
+		assertEquals(parseString(json), object(
+			entry("unquoted", "key"),
+			entry("num", 2.2),
+			entry("\bee\f", "yum")
+		));
+
+		json = "{a:1,b:2,c:[3,4,5],d:{e:6,f:7}}";
+		assertEquals(parseString(json), object(
+			entry("a", 1),
+			entry("b", 2),
+			entry("c", array(3, 4, 5)),
+			entry("d", object(
+				entry("e", 6),
+				entry("f", 7)
+			))
+		));
+	}
+
 	public static class TestObject {
 		@ZsonField(comment = "look a comment")
 		public int wow = 42;
