@@ -4,6 +4,8 @@ import dev.nolij.zson.ZsonField;
 import dev.nolij.zson.Zson;
 import dev.nolij.zson.ZsonValue;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -12,6 +14,26 @@ import static dev.nolij.zson.Zson.*;
 
 @SuppressWarnings({"unused", "DataFlowIssue", "FieldMayBeFinal"})
 public class ZsonTest {
+
+	@Test
+	public void json5Spec() throws IOException {
+
+		Map<String, ZsonValue> map = parseFile(Path.of("spec.json5"));
+
+		assertEquals(map, object(
+			entry("unquoted", "and you can quote me on that"),
+			entry("singleQuotes", "I can use \"double quotes\" here"),
+			entry("lineBreaks", "Look, Mom! \nNo \\n's!"),
+			entry("hexadecimal", 0xdecaf),
+			entry("leadingDecimalPoint", .8675309),
+			entry("andTrailing", 8675309.),
+			entry("positiveSign", +1),
+			entry("trailingComma", "in objects"),
+			entry("andIn", array("arrays")),
+			entry("backwardsCompatible", "with JSON")
+		));
+	}
+
 	@Test
 	public void testReadWrite() {
 		Zson writer = new Zson()

@@ -18,7 +18,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.Map.Entry;
 
-@SuppressWarnings({"deprecation", "UnstableApiUsage", "unused"})
+@SuppressWarnings({"deprecation", "UnstableApiUsage"})
 public final class Zson {
 	//region Helper Methods
 
@@ -218,7 +218,7 @@ public final class Zson {
 	@Contract("_ -> new")
 	public static Map<String, ZsonValue> obj2Map(@Nullable Object object) {
 		if(object == null) return object();
-		Map<String, ZsonValue> map = Zson.object();
+		Map<String, ZsonValue> map = object();
 		for (Field field : object.getClass().getDeclaredFields()) {
 			if(!shouldInclude(field, true)) continue;
 			ZsonField value = field.getAnnotation(ZsonField.class);
@@ -395,9 +395,9 @@ public final class Zson {
 					return (T) parseArray(input);
 				}
 				case '"', '\'' -> {
-					return (T) Zson.unescape(parseString(input, (char) ch));
+					return (T) unescape(parseString(input, (char) ch));
 				}
-				case '-', '+', 'N', 'I',
+				case '.', '-', '+', 'N', 'I',
 					 '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
 					return (T) parseNumber(input, (char) ch);
 				}
@@ -426,7 +426,7 @@ public final class Zson {
 	 */
 	@Contract(mutates = "param")
 	private static Map<String, ZsonValue> parseObject(Reader input) throws IOException {
-		var map = Zson.object();
+		var map = object();
 
 		var comma = false;
 		var colon = false;
@@ -463,7 +463,7 @@ public final class Zson {
 
 			if (key == null) {
 				key = switch (ch) {
-					case '"', '\'' -> Zson.unescape(parseString(input, (char) ch));
+					case '"', '\'' -> unescape(parseString(input, (char) ch));
 					default -> {
 						if (Character.isJavaIdentifierStart(ch) || ch == '\\') {
 							yield parseIdentifier(input, ch);
@@ -558,7 +558,7 @@ public final class Zson {
 			if (c == '\\') {
 				escapes++;
 				if (escapes == 2) {
-					output.append('\\');
+					output.append("\\\\");
 					escapes = 0;
 				}
 			} else {
@@ -741,6 +741,10 @@ public final class Zson {
 					return parseDecimal(input, '0');
 				}
 			}
+
+			case '.' -> {
+				return parseDecimal(input, '.');
+			}
 		}
 
 		throw unexpected(start);
@@ -830,9 +834,7 @@ public final class Zson {
 		if (c == '/') {
 			int c2 = input.read();
 			if (c2 == '/') {
-				while ((c = input.read()) != -1)
-					if (c == '\n')
-						break;
+				while ((c = input.read()) != -1 && c != '\n');
 
 				return true;
 			} else if (c2 == '*') {
@@ -983,7 +985,7 @@ public final class Zson {
 				throw new StackOverflowError("Map is circular");
 			}
 		} else if (value instanceof String stringValue) {
-			return '"' + Zson.escape(stringValue, '"') + '"';
+			return '"' + escape(stringValue, '"') + '"';
 		} else if (value instanceof Number || value instanceof Boolean || value == null) {
 			return String.valueOf(value);
 		} else if (value instanceof Iterable<?> iterableValue) {
