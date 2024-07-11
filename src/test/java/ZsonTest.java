@@ -246,6 +246,16 @@ public class ZsonTest {
 				entry("f", 7)
 			))
 		));
+
+		json = "{/*comment *//*comment */ a  :/*comment */1/*comment */, b/*comment */ : 2 }//comment";
+
+		assertEquals(parseString(json), object(
+			entry("a", 1),
+			entry("b", 2)
+		));
+
+		json = "/**/[/**/1/**/,\"str\"  ,/**/\t7]";
+		assertEquals(parseString(json), array(1, "str", 7));
 	}
 
 	public static class TestObject {

@@ -569,7 +569,7 @@ public final class Zson {
 	 * @return The parsed identifier
 	 * @throws IOException If an I/O error occurs
 	 */
-	// TODO: handle multi-character escapes and comments between the identifier and the colon (like "a/*comment*/:1")
+	// TODO: handle multi-character escapes
 	@Contract(mutates = "param1")
 	private static String parseIdentifier(Reader input, int start) throws IOException {
 		var output = new StringBuilder();
