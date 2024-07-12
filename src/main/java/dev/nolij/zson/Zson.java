@@ -1,5 +1,6 @@
 package dev.nolij.zson;
 
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -10,13 +11,21 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.math.BigInteger;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
-import java.util.Map.Entry;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
+import java.math.BigInteger;
+
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings({"deprecation", "UnstableApiUsage"})
 public final class Zson {
@@ -50,7 +59,7 @@ public final class Zson {
 	@Contract("_ -> new")
 	public static Map<String, ZsonValue> object(@NotNull Map.Entry<String, ZsonValue>... entries) {
 		Map<String, ZsonValue> map = new LinkedHashMap<>();
-		for (Entry<String, ZsonValue> e : entries) {
+		for (Map.Entry<String, ZsonValue> e : entries) {
 			map.put(e.getKey(), e.getValue());
 		}
 		return map;
@@ -349,7 +358,7 @@ public final class Zson {
 	 */
 	@Nullable
 	@Contract(pure = true)
-	public static <T> T parseString(@NotNull String serialized) {
+	public static <T> T parseString(@NotNull @Language("json5") String serialized) {
 		try {
 			return parse(new StringReader(serialized));
 		} catch (IOException e) {
