@@ -19,7 +19,7 @@ repositories {
 }
 
 dependencies {
-    implementation("dev.nolij:zson:version")
+    implementation("dev.nolij:zson:[version]")
 }
 ```
 </details>
@@ -32,13 +32,17 @@ repositories {
 }
 
 dependencies {
-    implementation 'dev.nolij:zson:version'
+    implementation 'dev.nolij:zson:[version]'
 }
 ```
 </details>
 
-Replace `version` with the version of the library you want to use.
+Replace `[version]` with the version of the library you want to use.
 You can find the latest version on the [releases page](https://github.com/Nolij/ZSON/releases).
+
+If you wish to use an older version of Java, we provide 3 downgraded jars for Java 17, 8, and 5.
+You can use them by appending a classifier `downgraded-[java version]` to the dependency, for example:
+`implementation("dev.nolij:zson:version:downgraded-8")`.
 
 Then, you can use the library like so:
 ```java
