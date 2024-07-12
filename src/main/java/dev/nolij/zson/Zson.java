@@ -27,6 +27,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static dev.nolij.zson.ZsonValue.NO_COMMENT;
+
 @SuppressWarnings({"deprecation", "UnstableApiUsage"})
 public final class Zson {
 	//region Helper Methods
@@ -36,12 +38,12 @@ public final class Zson {
 	 */
 	@NotNull
 	@Contract("_, _, _ -> new")
-	public static Map.Entry<String, ZsonValue> entry(@NotNull String key, @Nullable String comment, @Nullable Object value) {
+	public static Map.Entry<String, ZsonValue> entry(@NotNull String key, @NotNull String comment, @Nullable Object value) {
 		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(comment, value));
 	}
 
 	/**
-	 * Create a new entry with the given key and value. The comment will be null.
+	 * Create a new entry with the given key and value, and no comment.
 	 */
 	@NotNull
 	@Contract(value = "_, _ -> new", pure = true)
@@ -231,11 +233,11 @@ public final class Zson {
 		for (Field field : object.getClass().getDeclaredFields()) {
 			if(!shouldInclude(field, true)) continue;
 			ZsonField value = field.getAnnotation(ZsonField.class);
-			String comment = value == null ? null : value.comment();
+			String comment = value == null ? NO_COMMENT : value.comment();
 			try {
 				boolean accessible = field.isAccessible();
 				if (!accessible) field.setAccessible(true);
-				map.put(field.getName(), new ZsonValue("\0".equals(comment) ? null : comment, field.get(object)));
+				map.put(field.getName(), new ZsonValue(comment, field.get(object)));
 				if (!accessible) field.setAccessible(false);
 			} catch (IllegalAccessException e) {
 				throw new RuntimeException("Failed to get field " + field.getName(), e);
@@ -930,7 +932,7 @@ public final class Zson {
 			ZsonValue zv = entry.getValue();
 			String comment = zv.comment;
 
-			if (comment != null) {
+			if (!NO_COMMENT.equals(comment)) {
 				for (String line : comment.split("\n")) {
 					output
 							.append(indent)
