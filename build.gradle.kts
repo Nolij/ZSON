@@ -1,5 +1,9 @@
+import org.objectweb.asm.tools.Retrofitter
 import xyz.wagyourtail.jvmdg.gradle.task.DowngradeJar
 import java.time.ZonedDateTime
+import java.util.jar.JarEntry
+import java.util.jar.JarOutputStream
+import java.util.zip.Deflater
 
 plugins {
     id("idea")
@@ -113,6 +117,42 @@ val downgradeJar17 = tasks.register<DowngradeJar>("downgradeJar17") {
     archiveClassifier = "downgraded-17"
 }
 
+val downgradeJar5 = tasks.register<Jar>("downgradeJar5") {
+    dependsOn(tasks.downgradeJar)
+    group = "jvmdowngrader"
+    archiveClassifier = "downgraded-5"
+    outputs.upToDateWhen { false }
+
+    doLast {
+        val jar = tasks.downgradeJar.get().archiveFile
+        val dir = temporaryDir.resolve("downgradeJar5")
+        dir.mkdirs()
+
+        copy {
+            from(zipTree(jar))
+            into(dir)
+        }
+
+        Retrofitter().retrofit(
+            dir.toPath(),
+            "9.7"
+        )
+
+        JarOutputStream(archiveFile.get().asFile.outputStream()).use { jos ->
+            jos.setLevel(Deflater.BEST_COMPRESSION)
+            dir.walkTopDown().forEach { file ->
+                if (file.isFile) {
+                    jos.putNextEntry(JarEntry(file.relativeTo(dir).toPath().toString()))
+                    file.inputStream().use { it.copyTo(jos) }
+                    jos.closeEntry()
+                }
+            }
+            jos.flush()
+            jos.finish()
+        }
+    }
+}
+
 tasks.jar {
     isPreserveFileTimestamps = false
     isReproducibleFileOrder = true
@@ -137,6 +177,7 @@ tasks.assemble {
 
 tasks.test {
     useJUnitPlatform()
+    outputs.upToDateWhen { false }
 }
 
 tasks.withType<GenerateModuleMetadata> {
@@ -174,6 +215,7 @@ publishing {
             artifact(tasks.jar) // java 21
             artifact(downgradeJar17) // java 17
             artifact(tasks.downgradeJar) // java 8
+            artifact(downgradeJar5) // java 5
             artifact(sourcesJar) // java 21 sources
         }
     }

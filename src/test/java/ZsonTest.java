@@ -16,6 +16,11 @@ import static dev.nolij.zson.Zson.*;
 public class ZsonTest {
 
 	@Test
+	public void makeSureTestsRun() {
+		System.out.println("Tests are running!");
+	}
+
+	@Test
 	public void json5Spec() throws IOException {
 
 		Map<String, ZsonValue> map = parseFile(Path.of("spec.json5"));

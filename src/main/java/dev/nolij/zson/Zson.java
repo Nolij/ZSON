@@ -819,7 +819,7 @@ public final class Zson {
 		int c;
 		var skipped = 0;
 		while ((c = input.read()) != -1) {
-			if (!Character.isWhitespace(c)) {
+			if (!isWhitespace(c) && !isLineTerminator(c)) {
 				input.reset();
 
 				return skipped != 0;
@@ -872,6 +872,22 @@ public final class Zson {
 	@Contract(" -> fail")
 	private static IllegalArgumentException unexpectedEOF() {
 		return new IllegalArgumentException("Unexpected EOF");
+	}
+
+	/**
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.2">ECMAScript 5.1 §7.2</a>
+	 */
+	private static boolean isWhitespace(int c) {
+		return c == '\t' || c == '\n' || c == '\f' || c == '\r' || c == ' '
+				|| c == 0x00A0 || c == 0xFEFF || Character.getType(c) == Character.SPACE_SEPARATOR;
+	}
+
+	/**
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.3">ECMAScript 5.1 §7.3</a>
+
+	 */
+	private static boolean isLineTerminator(int c) {
+		return c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
 	}
 	//endregion
 
@@ -1022,13 +1038,12 @@ public final class Zson {
 		throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getName());
 	}
 
-	/**
-	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.2">ECMAScript 5.1 §7.2</a>
-	 */
 	@Contract(value = "_ -> this", mutates = "this")
 	public Zson withIndent(String indent) {
-		if (!indent.matches("[\\t\\v\\f\\s\\u00A0\\uFEFF\\p{gc=Zs}]+")) {
-			throw new IllegalArgumentException("Invalid indent: '" + indent + "'");
+		for(char c : indent.toCharArray()) {
+			if(!isWhitespace(c)) {
+				throw new IllegalArgumentException("Indent '" + indent + "' must be a whitespace string");
+			}
 		}
 		this.indent = indent;
 		return this;
