@@ -1,8 +1,5 @@
-import org.gradle.api.tasks.javadoc.internal.JavadocToolAdapter
-import org.gradle.external.javadoc.internal.JavadocOptionFile
 import org.objectweb.asm.tools.Retrofitter
 import xyz.wagyourtail.jvmdg.gradle.task.DowngradeJar
-import java.nio.file.Path
 import java.time.ZonedDateTime
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
@@ -52,7 +49,7 @@ val releaseIncrement = if (isExternalCI) 0 else 1
 val releaseChannel: ReleaseChannel =
     if (isExternalCI) {
         val tagName = releaseTags.first().name
-        val suffix = """\-(\w+)\.\d+$""".toRegex().find(tagName)?.groupValues?.get(1)
+        val suffix = """-(\w+)\.\d+$""".toRegex().find(tagName)?.groupValues?.get(1)
         if (suffix != null)
             ReleaseChannel.values().find { channel -> channel.suffix == suffix }!!
         else
@@ -150,10 +147,7 @@ val downgradeJar5 = tasks.register<Jar>("downgradeJar5") {
             into(dir)
         }
 
-        Retrofitter().retrofit(
-            dir.toPath(),
-            "9.7"
-        )
+        Retrofitter().retrofit(dir.toPath())
 
         JarOutputStream(archiveFile.get().asFile.outputStream()).use { jos ->
             jos.setLevel(Deflater.BEST_COMPRESSION)

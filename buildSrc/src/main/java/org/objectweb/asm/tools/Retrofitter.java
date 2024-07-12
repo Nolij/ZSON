@@ -122,7 +122,7 @@ public final class Retrofitter {
 	 */
 	public static void main(final String[] args) throws IOException {
 		if (args.length == 2) {
-			new Retrofitter().retrofit(Paths.get(args[0]), args[1]);
+			new Retrofitter().retrofit(Paths.get(args[0]));
 		} else {
 			System.err.println("Usage: Retrofitter <classes directory> <ASM release version>"); // NOPMD
 		}
@@ -134,17 +134,16 @@ public final class Retrofitter {
 	 * version.
 	 *
 	 * @param classesDir a directory containing compiled classes.
-	 * @param version the module-info version.
 	 * @throws IOException if a file can't be read or written.
 	 */
-	public void retrofit(final Path classesDir, final String version) throws IOException {
+	// ZSON - remove `version` parameter and call to `generateModuleInfoClass`
+	public void retrofit(final Path classesDir) throws IOException {
 		for (Path classFile : getAllClasses(classesDir, /* includeModuleInfo= */ true)) {
 			ClassReader classReader = new ClassReader(Files.readAllBytes(classFile));
 			ClassWriter classWriter = new ClassWriter(0);
 			classReader.accept(new ClassRetrofitter(classWriter), ClassReader.SKIP_FRAMES);
 			Files.write(classFile, classWriter.toByteArray());
 		}
-//		generateModuleInfoClass(classesDir, version); // ZSON - turn this off
 	}
 
 	/**
