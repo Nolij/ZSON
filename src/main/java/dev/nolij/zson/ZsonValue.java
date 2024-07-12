@@ -32,7 +32,7 @@ public final class ZsonValue {
 
 	@Override
 	public int hashCode() {
-		return value == null ? 0 : value.hashCode();
+		return Objects.hashCode(value);
 	}
 
 	@Override

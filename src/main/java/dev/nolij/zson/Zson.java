@@ -1,5 +1,6 @@
 package dev.nolij.zson;
 
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -10,15 +11,23 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.math.BigInteger;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
-import java.util.Map.Entry;
 
-@SuppressWarnings({"deprecation", "UnstableApiUsage", "unused"})
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
+import java.math.BigInteger;
+
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+@SuppressWarnings({"deprecation", "UnstableApiUsage"})
 public final class Zson {
 	//region Helper Methods
 
@@ -27,7 +36,7 @@ public final class Zson {
 	 */
 	@NotNull
 	@Contract("_, _, _ -> new")
-	public static Map.Entry<String, ZsonValue> entry(@Nullable String key, @Nullable String comment, @Nullable Object value) {
+	public static Map.Entry<String, ZsonValue> entry(@NotNull String key, @Nullable String comment, @Nullable Object value) {
 		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(comment, value));
 	}
 
@@ -36,7 +45,7 @@ public final class Zson {
 	 */
 	@NotNull
 	@Contract(value = "_, _ -> new", pure = true)
-	public static Map.Entry<String, ZsonValue> entry(@Nullable String key, @Nullable Object value) {
+	public static Map.Entry<String, ZsonValue> entry(@NotNull String key, @Nullable Object value) {
 		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(value));
 	}
 
@@ -50,7 +59,7 @@ public final class Zson {
 	@Contract("_ -> new")
 	public static Map<String, ZsonValue> object(@NotNull Map.Entry<String, ZsonValue>... entries) {
 		Map<String, ZsonValue> map = new LinkedHashMap<>();
-		for (Entry<String, ZsonValue> e : entries) {
+		for (Map.Entry<String, ZsonValue> e : entries) {
 			map.put(e.getKey(), e.getValue());
 		}
 		return map;
@@ -68,6 +77,16 @@ public final class Zson {
 		Collections.addAll(list, values);
 		
 		return list;
+	}
+
+	public static <E extends Enum<E>> void convertEnum(Map<String, ZsonValue> json, String key, Class<E> enumClass) {
+		ZsonValue value = json.get(key);
+		if(value == null) return;
+		if(value.value instanceof String s) {
+			json.put(key, new ZsonValue(value.comment, Enum.valueOf(enumClass, s)));
+		} else if(!enumClass.isInstance(value.value)) {
+			throw new IllegalArgumentException("Expected string, got " + value.value);
+		}
 	}
 
 	/**
@@ -208,7 +227,7 @@ public final class Zson {
 	@Contract("_ -> new")
 	public static Map<String, ZsonValue> obj2Map(@Nullable Object object) {
 		if(object == null) return object();
-		Map<String, ZsonValue> map = Zson.object();
+		Map<String, ZsonValue> map = object();
 		for (Field field : object.getClass().getDeclaredFields()) {
 			if(!shouldInclude(field, true)) continue;
 			ZsonField value = field.getAnnotation(ZsonField.class);
@@ -298,11 +317,11 @@ public final class Zson {
 					case "char" -> field.setChar(object, (char) value);
 				}
 			} else {
-				if(type.isEnum()) {
-					field.set(object, Enum.valueOf((Class<Enum>) type, (String) value));
-				} else {
-					field.set(object, type.cast(value));
+				Object finalValue = value;
+				if (type.isEnum() && value instanceof String) {
+					finalValue = Enum.valueOf((Class<Enum>) type, (String) value);
 				}
+				field.set(object, finalValue);
 			}
 		} catch (Exception e) {
 			throw new AssertionError(
@@ -339,7 +358,7 @@ public final class Zson {
 	 */
 	@Nullable
 	@Contract(pure = true)
-	public static <T> T parseString(@NotNull String serialized) {
+	public static <T> T parseString(@NotNull @Language("json5") String serialized) {
 		try {
 			return parse(new StringReader(serialized));
 		} catch (IOException e) {
@@ -385,9 +404,9 @@ public final class Zson {
 					return (T) parseArray(input);
 				}
 				case '"', '\'' -> {
-					return (T) Zson.unescape(parseString(input, (char) ch));
+					return (T) unescape(parseString(input, (char) ch));
 				}
-				case '-', '+', 'N', 'I',
+				case '.', '-', '+', 'N', 'I',
 					 '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
 					return (T) parseNumber(input, (char) ch);
 				}
@@ -416,7 +435,7 @@ public final class Zson {
 	 */
 	@Contract(mutates = "param")
 	private static Map<String, ZsonValue> parseObject(Reader input) throws IOException {
-		var map = Zson.object();
+		var map = object();
 
 		var comma = false;
 		var colon = false;
@@ -453,10 +472,10 @@ public final class Zson {
 
 			if (key == null) {
 				key = switch (ch) {
-					case '"', '\'' -> Zson.unescape(parseString(input, (char) ch));
+					case '"', '\'' -> unescape(parseString(input, (char) ch));
 					default -> {
-						if (Character.isLetter(ch) || ch == '_' || ch == '$' || ch == '\\') {
-							yield parseIdentifier(input, (char) ch);
+						if (Character.isJavaIdentifierStart(ch) || ch == '\\') {
+							yield parseIdentifier(input, ch);
 						} else {
 							throw unexpected(ch);
 						}
@@ -548,7 +567,7 @@ public final class Zson {
 			if (c == '\\') {
 				escapes++;
 				if (escapes == 2) {
-					output.append('\\');
+					output.append("\\\\");
 					escapes = 0;
 				}
 			} else {
@@ -569,16 +588,29 @@ public final class Zson {
 	 * @return The parsed identifier
 	 * @throws IOException If an I/O error occurs
 	 */
+	// TODO: handle multi-character escapes
 	@Contract(mutates = "param1")
-	private static String parseIdentifier(Reader input, char start) throws IOException {
+	private static String parseIdentifier(Reader input, int start) throws IOException {
 		var output = new StringBuilder();
-		output.append(start);
+		boolean escaped = start == '\\';
+
+		if(!escaped)
+			output.append((char) start);
 
 		int c;
 		input.mark(1);
 		while ((c = input.read()) != -1) {
-			// TODO: verify this works properly... https://262.ecma-international.org/5.1/#sec-7.6
-			if (!Character.isWhitespace(c)) {
+			if(escaped) {
+				if(c == 'n' || c == 'r') {
+					throw unexpected(c);
+				}
+				output.append(unescape("\\" + (char) c));
+				input.mark(1);
+				escaped = false;
+			} else if (c == '\\') {
+				input.mark(1);
+				escaped = true;
+			} else if (isIdentifierChar(c)) {
 				input.mark(1);
 				output.append(Character.toChars(c));
 			} else {
@@ -588,6 +620,35 @@ public final class Zson {
 		}
 
 		throw unexpectedEOF();
+	}
+
+	/**
+	 * Checks if the given character is a valid EMCAScript <i>IdentifierName</i> character.
+	 * This is true if the character is an underscore ({@code _}), a dollar sign ({@code $}),
+	 * or a character in one of the following Unicode categories:
+	 * <ul>
+	 *     <li>Uppercase letter (Lu)</li>
+	 *     <li>Lowercase letter (Ll)</li>
+	 *     <li>Titlecase letter (Lt)</li>
+	 *     <li>Modifier letter (Lm)</li>
+	 *     <li>Other letter (Lo)</li>
+	 *     <li>Letter Number (Nl)</li>
+	 *     <li>Non-spacing mark (Mn)</li>
+	 *     <li>Combining spacing mark (Mc)</li>
+	 *     <li>Decimal number (Nd)</li>
+	 *     <li>Connector punctuation (Pc)</li>
+	 * </ul>
+	 * @param c the code point to check
+	 * @return {@code true} if the character is a valid identifier character, {@code false} otherwise
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.6">ECMAScript 5.1 §7.6</a>
+	 */
+	private static boolean isIdentifierChar(int c) {
+		if(c == '_' || c == '$') return true;
+		int type = Character.getType(c);
+		return type == Character.UPPERCASE_LETTER || type == Character.LOWERCASE_LETTER || type == Character.TITLECASE_LETTER ||
+			type == Character.MODIFIER_LETTER || type == Character.OTHER_LETTER || type == Character.LETTER_NUMBER ||
+			type == Character.NON_SPACING_MARK || type == Character.COMBINING_SPACING_MARK || type == Character.DECIMAL_DIGIT_NUMBER ||
+			type == Character.CONNECTOR_PUNCTUATION;
 	}
 
 	/**
@@ -689,6 +750,10 @@ public final class Zson {
 					return parseDecimal(input, '0');
 				}
 			}
+
+			case '.' -> {
+				return parseDecimal(input, '.');
+			}
 		}
 
 		throw unexpected(start);
@@ -778,9 +843,7 @@ public final class Zson {
 		if (c == '/') {
 			int c2 = input.read();
 			if (c2 == '/') {
-				while ((c = input.read()) != -1)
-					if (c == '\n')
-						break;
+				while ((c = input.read()) != -1 && c != '\n');
 
 				return true;
 			} else if (c2 == '*') {
@@ -864,7 +927,6 @@ public final class Zson {
 		output.append("{\n");
 
 		for (var entry : data.entrySet()) {
-			String key = entry.getKey();
 			ZsonValue zv = entry.getValue();
 			String comment = zv.comment;
 
@@ -882,7 +944,7 @@ public final class Zson {
 			if (quoteKeys)
 				output.append('"');
 
-			output.append(key);
+			output.append(checkIdentifier(entry.getKey()));
 			if (quoteKeys)
 				output.append('"');
 
@@ -890,6 +952,24 @@ public final class Zson {
 		}
 
 		output.append("}");
+	}
+
+	/**
+	 * Checks if the given string is a valid identifier.
+	 * @param key The string to check.
+	 * @return {@code true} if the string is a valid identifier, {@code false} otherwise.
+	 * @see #isIdentifierChar(int)
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.6">ECMAScript 5.1 §7.6</a>
+	 */
+	private String checkIdentifier(String key) {
+		if(key == null || key.isEmpty()) throw new IllegalArgumentException("Key cannot be null or empty");
+		int c = key.charAt(0);
+		if(!Character.isJavaIdentifierStart(c) && c != '\\') throw new IllegalArgumentException("Key must start with a valid identifier character: " + key.charAt(0));
+		for (int i = 1; i < key.length(); i++) {
+			if(!isIdentifierChar(key.charAt(i))) throw new IllegalArgumentException("Key must be a valid Java identifier: " + key);
+		}
+
+		return key;
 	}
 
 	/**
@@ -914,7 +994,7 @@ public final class Zson {
 				throw new StackOverflowError("Map is circular");
 			}
 		} else if (value instanceof String stringValue) {
-			return '"' + Zson.escape(stringValue, '"') + '"';
+			return '"' + escape(stringValue, '"') + '"';
 		} else if (value instanceof Number || value instanceof Boolean || value == null) {
 			return String.valueOf(value);
 		} else if (value instanceof Iterable<?> iterableValue) {

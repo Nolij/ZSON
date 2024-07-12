@@ -4,6 +4,8 @@ import dev.nolij.zson.ZsonField;
 import dev.nolij.zson.Zson;
 import dev.nolij.zson.ZsonValue;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -12,6 +14,26 @@ import static dev.nolij.zson.Zson.*;
 
 @SuppressWarnings({"unused", "DataFlowIssue", "FieldMayBeFinal"})
 public class ZsonTest {
+
+	@Test
+	public void json5Spec() throws IOException {
+
+		Map<String, ZsonValue> map = parseFile(Path.of("spec.json5"));
+
+		assertEquals(map, object(
+			entry("unquoted", "and you can quote me on that"),
+			entry("singleQuotes", "I can use \"double quotes\" here"),
+			entry("lineBreaks", "Look, Mom! \nNo \\n's!"),
+			entry("hexadecimal", 0xdecaf),
+			entry("leadingDecimalPoint", .8675309),
+			entry("andTrailing", 8675309.),
+			entry("positiveSign", +1),
+			entry("trailingComma", "in objects"),
+			entry("andIn", array("arrays")),
+			entry("backwardsCompatible", "with JSON")
+		));
+	}
+
 	@Test
 	public void testReadWrite() {
 		Zson writer = new Zson()
@@ -211,6 +233,85 @@ public class ZsonTest {
 		assertEquals(2, obj.d);
 	}
 
+	@Test
+	public void testFunkyFormatting() {
+		String json = """
+		{"hmm": true,
+											"constant":false,a:   "seven"}""";
+
+		assertEquals(parseString(json), object(
+			entry("hmm", true),
+			entry("constant", false),
+			entry("a", "seven")
+		));
+
+		json = """
+				{
+			unquoted: "key",
+			"num": 2.2,
+		\\bee\\f: "yum" // comment
+		 }""";
+
+		assertEquals(parseString(json), object(
+			entry("unquoted", "key"),
+			entry("num", 2.2),
+			entry("\bee\f", "yum")
+		));
+
+		json = "{a:1,b:2,c:[3,4,5],d:{e:6,f:7}}";
+		assertEquals(parseString(json), object(
+			entry("a", 1),
+			entry("b", 2),
+			entry("c", array(3, 4, 5)),
+			entry("d", object(
+				entry("e", 6),
+				entry("f", 7)
+			))
+		));
+
+		json = "{/*comment *//*comment */ a  :/*comment */1/*comment */, b/*comment */ : 2 }//comment";
+
+		assertEquals(parseString(json), object(
+			entry("a", 1),
+			entry("b", 2)
+		));
+
+		json = "/**/[/**/1/**/,\"str\"  ,/**/\t7]";
+		assertEquals(parseString(json), array(1, "str", 7));
+
+		assertThrows(IllegalArgumentException.class, () -> new Zson().stringify(object(
+			entry(null, 1)
+		)));
+	}
+
+	@Test
+	public void testUnquotedKeys() {
+		TestObject obj = new TestObject();
+		obj.testEnum = TestEnum.TWO;
+		Map<String, ZsonValue> json = obj2Map(obj);
+		String expected = """
+		{
+			// look a comment
+			wow: 42,
+			such: "amaze",
+			very: true,
+			constant: "wow",
+			testEnum: "TWO",
+		}""";
+
+		String actual = new Zson().withQuoteKeys(false).stringify(json);
+
+		assertEquals(expected, actual);
+
+		Map<String, ZsonValue> parsed = parseString(actual);
+		convertEnum(parsed, "testEnum", TestEnum.class);
+		assertEquals(json, parsed);
+
+		TestObject obj2 = map2Obj(parsed, TestObject.class);
+
+		assertEquals(obj, obj2);
+	}
+
 	public static class TestObject {
 		@ZsonField(comment = "look a comment")
 		public int wow = 42;
@@ -226,6 +327,17 @@ public class ZsonTest {
 		public static final String constant = "wow";
 
 		public TestEnum testEnum = TestEnum.ONE;
+
+		@Override
+		public boolean equals(Object obj) {
+			if (obj == this) return true;
+			if (!(obj instanceof TestObject other)) return false;
+			return wow == other.wow
+				   && such.equals(other.such)
+				   && very == other.very
+				   && pi == other.pi
+				   && testEnum == other.testEnum;
+		}
 	}
 
 	public static class AllTypes {
