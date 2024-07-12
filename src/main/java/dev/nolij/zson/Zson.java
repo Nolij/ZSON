@@ -29,7 +29,7 @@ import java.util.Map;
 
 import static dev.nolij.zson.ZsonValue.NO_COMMENT;
 
-@SuppressWarnings({"deprecation", "UnstableApiUsage"})
+@SuppressWarnings({"deprecation", "UnstableApiUsage", "BooleanMethodIsAlwaysInverted"})
 public final class Zson {
 	//region -------------------- Helper Methods --------------------
 
@@ -281,7 +281,6 @@ public final class Zson {
 	 *                           otherwise they are not included at all.
 	 * @return true if the field should be included in a JSON map, false otherwise.
 	 */
-	@SuppressWarnings("BooleanMethodIsAlwaysInverted")
 	private static boolean shouldInclude(Field field, boolean forDeserialization) {
 		ZsonField value = field.getAnnotation(ZsonField.class);
 
@@ -974,7 +973,7 @@ public final class Zson {
 
 	/**
 	 * Checks if the given string is a valid identifier.
-	 * @param key The string to check.
+	 * @param key The string to check.sadasdf
 	 * @return {@code true} if the string is a valid identifier, {@code false} otherwise.
 	 * @see #isIdentifierChar(int)
 	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.6">ECMAScript 5.1 §7.6</a>

@@ -1,5 +1,8 @@
+import org.gradle.api.tasks.javadoc.internal.JavadocToolAdapter
+import org.gradle.external.javadoc.internal.JavadocOptionFile
 import org.objectweb.asm.tools.Retrofitter
 import xyz.wagyourtail.jvmdg.gradle.task.DowngradeJar
+import java.nio.file.Path
 import java.time.ZonedDateTime
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
@@ -93,6 +96,14 @@ val versionTagName = "${releaseTagPrefix}${versionString}"
 version = versionString
 println("ZSON Version: $versionString")
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+
+    withSourcesJar()
+    withJavadocJar()
+}
+
 repositories {
     mavenCentral()
 }
@@ -102,6 +113,11 @@ dependencies {
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.0-M1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.javadoc {
+    val options = options as StandardJavadocDocletOptions
+    options.addBooleanOption("Xdoclint:none", true)
 }
 
 tasks.downgradeJar {
@@ -118,6 +134,7 @@ val downgradeJar17 = tasks.register<DowngradeJar>("downgradeJar17") {
 }
 
 val downgradeJar5 = tasks.register<Jar>("downgradeJar5") {
+    // JVMDG doesn't support java 5, so we have to do it manually using an internal ASM tool
     dependsOn(tasks.downgradeJar)
     group = "jvmdowngrader"
     archiveClassifier = "downgraded-5"
@@ -164,7 +181,6 @@ tasks.jar {
     finalizedBy(tasks.downgradeJar, downgradeJar17)
 }
 
-java.withSourcesJar()
 val sourcesJar: Jar = tasks.withType<Jar>()["sourcesJar"].apply {
     from(rootProject.file("LICENSE")) {
         rename { "${it}_${rootProject.name}" }
@@ -172,7 +188,7 @@ val sourcesJar: Jar = tasks.withType<Jar>()["sourcesJar"].apply {
 }
 
 tasks.assemble {
-    dependsOn(tasks.jar, sourcesJar)
+    dependsOn(tasks.jar, sourcesJar, downgradeJar17, downgradeJar5)
 }
 
 tasks.test {
@@ -217,6 +233,7 @@ publishing {
             artifact(tasks.downgradeJar) // java 8
             artifact(downgradeJar5) // java 5
             artifact(sourcesJar) // java 21 sources
+            artifact(tasks["javadocJar"])
         }
     }
 }
