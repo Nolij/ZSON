@@ -31,7 +31,7 @@ import static dev.nolij.zson.ZsonValue.NO_COMMENT;
 
 @SuppressWarnings({"deprecation", "UnstableApiUsage"})
 public final class Zson {
-	//region Helper Methods
+	//region -------------------- Helper Methods --------------------
 
 	/**
 	 * Create a new entry with the given key, comment, and value.
@@ -337,7 +337,7 @@ public final class Zson {
 
 	//endregion
 
-	//region Parser
+	//region -------------------- Parser --------------------
 	/**
 	 * Parses a JSON value from the contents of the given {@link Path}.
 	 * If the file contains multiple JSON values, only the first one will be parsed.
@@ -875,9 +875,9 @@ public final class Zson {
 	}
 	//endregion
 
-	//region Writer
+	//region -------------------- Writer --------------------
 	public String indent;
-	public boolean expandArrays;
+	public boolean expandArrays; // whether to put each array element on its own line
 	public boolean quoteKeys;
 
 	public Zson() {
@@ -1022,8 +1022,14 @@ public final class Zson {
 		throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getName());
 	}
 
+	/**
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.2">ECMAScript 5.1 §7.2</a>
+	 */
 	@Contract(value = "_ -> this", mutates = "this")
 	public Zson withIndent(String indent) {
+		if (!indent.matches("[\\t\\v\\f\\s\\u00A0\\uFEFF\\p{gc=Zs}]+")) {
+			throw new IllegalArgumentException("Invalid indent: '" + indent + "'");
+		}
 		this.indent = indent;
 		return this;
 	}
