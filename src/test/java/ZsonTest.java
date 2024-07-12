@@ -28,7 +28,7 @@ public class ZsonTest {
 		assertEquals(map, object(
 			entry("unquoted", "and you can quote me on that"),
 			entry("singleQuotes", "I can use \"double quotes\" here"),
-			entry("lineBreaks", "Look, Mom! \nNo \\n's!"),
+			entry("lineBreaks", "Look, Mom! No \\n's!"),
 			entry("hexadecimal", 0xdecaf),
 			entry("leadingDecimalPoint", .8675309),
 			entry("andTrailing", 8675309.),
@@ -148,7 +148,7 @@ public class ZsonTest {
 		assertEquals(Double.POSITIVE_INFINITY, map.get("inf").value);
 		assertEquals(Double.NEGATIVE_INFINITY, map.get("neginf").value);
 		assertTrue(Double.isNaN((double) map.get("nan").value));
-		assertEquals("wow look\n\ta multiline string", map.get("multiline-string").value);
+		assertEquals("wow look\ta multiline string", map.get("multiline-string").value);
 	}
 
 	@Test
@@ -315,6 +315,18 @@ public class ZsonTest {
 		TestObject obj2 = map2Obj(parsed, TestObject.class);
 
 		assertEquals(obj, obj2);
+	}
+
+	@Test
+	public void newlinesInStrings() throws IOException {
+		Map<String, ZsonValue> map = parseFile(Path.of("multiline.json5"));
+
+		assertEquals("newline", map.get("cr").value);
+		assertEquals("newline", map.get("lf").value);
+		assertEquals("newline", map.get("crlf").value);
+		assertEquals("newline", map.get("u2028").value);
+		assertEquals("newline", map.get("u2029").value);
+		assertEquals("new\nline", map.get("escaped").value);
 	}
 
 	public static class TestObject {

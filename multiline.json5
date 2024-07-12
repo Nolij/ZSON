@@ -1,0 +1,11 @@
+{
+  cr: "new\
+line",
+  lf: "new\
+line",
+  crlf: "new\
+line",
+  u2028: "new line",
+  u2029: "new line",
+  escaped: "new\nline",
+}

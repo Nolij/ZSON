@@ -556,12 +556,16 @@ public final class Zson {
 				escapes--;
 			}
 
-			if (c == '\n') {
-				if (escapes == 0)
-					throw new IllegalArgumentException("Unexpected newline");
+			if (isLineTerminator(c)) {
+				if (escapes == 0) {
+					if (c == '\u2028' || c == '\u2029') {
+						System.err.println("[ZSON] Warning: unescaped line separator in string literal");
+					} else {
+						throw new IllegalArgumentException("Unexpected newline");
+					}
+				}
 
 				escapes = 0;
-				output.append('\n');
 				continue;
 			}
 
@@ -650,6 +654,22 @@ public final class Zson {
 			type == Character.MODIFIER_LETTER || type == Character.OTHER_LETTER || type == Character.LETTER_NUMBER ||
 			type == Character.NON_SPACING_MARK || type == Character.COMBINING_SPACING_MARK || type == Character.DECIMAL_DIGIT_NUMBER ||
 			type == Character.CONNECTOR_PUNCTUATION;
+	}
+
+	/**
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.2">ECMAScript 5.1 §7.2</a>
+	 */
+	private static boolean isWhitespace(int c) {
+		return c == '\t' || c == '\n' || c == '\f' || c == '\r' || c == ' '
+				|| c == 0x00A0 || c == 0xFEFF || Character.getType(c) == Character.SPACE_SEPARATOR;
+	}
+
+	/**
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.3">ECMAScript 5.1 §7.3</a>
+
+	 */
+	private static boolean isLineTerminator(int c) {
+		return c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
 	}
 
 	/**
@@ -872,22 +892,6 @@ public final class Zson {
 	private static IllegalArgumentException unexpectedEOF() {
 		return new IllegalArgumentException("Unexpected EOF");
 	}
-
-	/**
-	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.2">ECMAScript 5.1 §7.2</a>
-	 */
-	private static boolean isWhitespace(int c) {
-		return c == '\t' || c == '\n' || c == '\f' || c == '\r' || c == ' '
-				|| c == 0x00A0 || c == 0xFEFF || Character.getType(c) == Character.SPACE_SEPARATOR;
-	}
-
-	/**
-	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.3">ECMAScript 5.1 §7.3</a>
-
-	 */
-	private static boolean isLineTerminator(int c) {
-		return c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
-	}
 	//endregion
 
 	//region -------------------- Writer --------------------
@@ -994,10 +998,10 @@ public final class Zson {
 	 * @param value The value to convert.
 	 * @return a JSON5-compatible string representation of the value.
 	 */
+	@SuppressWarnings("unchecked")
 	private String value(Object value) {
 		if (value instanceof Map<?, ?>) {
 			try {
-				//noinspection unchecked
 				return stringify((Map<String, ZsonValue>) value).replace("\n", "\n" + indent);
 			} catch (ClassCastException e) {
 				if(e.getMessage().contains("cannot be cast to")) {
