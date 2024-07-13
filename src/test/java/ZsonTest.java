@@ -162,6 +162,7 @@ public class ZsonTest {
 			"hex": 0x2A,
 			"inf": Infinity,
 			"w": NaN,
+			java: 0XcAfeBabE,
 			"neginf": -Infinity,
 		}""";
 
@@ -174,6 +175,7 @@ public class ZsonTest {
 		assertEquals(42, map.get("hex").value);
 		assertEquals(Double.POSITIVE_INFINITY, map.get("inf").value);
 		assertTrue(Double.isNaN((Double) map.get("w").value));
+		assertEquals(0xcAfeBabEL, map.get("java").value); // the extra L is because it's a long
 		assertEquals(Double.NEGATIVE_INFINITY, map.get("neginf").value);
 
 		assertEquals("""
@@ -185,6 +187,7 @@ public class ZsonTest {
 			"hex": 42,
 			"inf": Infinity,
 			"w": NaN,
+			"java": 3405691582,
 			"neginf": -Infinity,
 		}""", new Zson().stringify(map));
 	}
@@ -319,7 +322,7 @@ public class ZsonTest {
 
 	@Test
 	public void newlinesInStrings() throws IOException {
-		Map<String, ZsonValue> map = parseFile(Path.of("multiline.json5"));
+		Map<String, ZsonValue> map = parseFile(Path.of("multiline.json5")); // kept in a separate file because the newlines are weird
 
 		assertEquals("newline", map.get("cr").value);
 		assertEquals("newline", map.get("lf").value);
@@ -327,6 +330,17 @@ public class ZsonTest {
 		assertEquals("newline", map.get("u2028").value);
 		assertEquals("newline", map.get("u2029").value);
 		assertEquals("new\nline", map.get("escaped").value);
+	}
+
+	@Test
+	public void otherRandomStuff() {
+		Map<String, ZsonValue> map = parseString("""
+		{
+			weirdEscapes: "\\A\\C\\/\\D\\C",
+		}
+		"""); // actually \A\C/\D\C but we need to escape the backslashes for java
+
+		assertEquals("AC/DC", map.get("weirdEscapes").value);
 	}
 
 	public static class TestObject {

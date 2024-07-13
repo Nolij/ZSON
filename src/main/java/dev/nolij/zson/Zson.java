@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static dev.nolij.zson.ZsonValue.NO_COMMENT;
@@ -144,7 +145,9 @@ public final class Zson {
 					i += 4;
 					yield (char) Integer.parseInt(hex, 16);
 				}
-				default -> throw new IllegalArgumentException(String.format("Invalid escape sequence: \\%c \\\\u%04X", d, (int) d));
+
+				// JSON5 spec says to ignore invalid escape sequences
+				default -> d;
 			};
 
 			chars[j++] = c;
@@ -761,7 +764,12 @@ public final class Zson {
 							hexValueBuilder.append(Character.toChars(c));
 						} else {
 							input.reset();
-							return Integer.parseInt(hexValueBuilder.toString(), 16);
+							long l = Long.parseLong(hexValueBuilder.toString().toUpperCase(Locale.ROOT), 16);
+							if(l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE) {
+								return (int) l;
+							} else {
+								return l;
+							}
 						}
 					}
 

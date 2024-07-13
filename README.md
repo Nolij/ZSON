@@ -69,6 +69,7 @@ public class ZsonExample {
 				)),
 				entry("null", "comments can also\nbe multiple lines", null)
 		);
+		String jsonString = writer.stringify(map);
 		System.out.println(jsonString);
 	}
 }
