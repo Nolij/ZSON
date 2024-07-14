@@ -40,9 +40,17 @@ dependencies {
 Replace `[version]` with the version of the library you want to use.
 You can find the latest version on the [releases page](https://github.com/Nolij/ZSON/releases).
 
-If you wish to use an older version of Java, we provide 3 downgraded jars for Java 17, 8, and 5.
+If you wish to use an older version of Java, we provide 2 downgraded jars for Java 17 and 8.
 You can use them by appending a classifier `downgraded-[java version]` to the dependency, for example:
-`implementation("dev.nolij:zson:version:downgraded-8")`.
+`implementation("dev.nolij:zson:[version]:downgraded-8")`.
+
+<details>
+<summary>A note about Java 8</summary>
+
+The Java 8 version actually uses Java 5 bytecode (classfile version 49), but because we use Java 8 features (namely NIO),
+it still requires Java 8 to run. The reason for doing this is that Java 5 bytecode doesn't have stack maps, which significantly
+reduces the size of the resulting jar.
+</details>
 
 Then, you can use the library like so:
 ```java

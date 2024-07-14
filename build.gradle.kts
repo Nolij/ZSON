@@ -121,24 +121,9 @@ tasks.downgradeJar {
     dependsOn(tasks.jar)
     downgradeTo = JavaVersion.VERSION_1_8
     archiveClassifier = "downgraded-8"
-}
-
-val downgradeJar17 = tasks.register<DowngradeJar>("downgradeJar17") {
-    dependsOn(tasks.jar)
-    downgradeTo = JavaVersion.VERSION_17
-    inputFile = tasks.jar.get().archiveFile
-    archiveClassifier = "downgraded-17"
-}
-
-val downgradeJar5 = tasks.register<Jar>("downgradeJar5") {
-    // JVMDG doesn't support java 5, so we have to do it manually using an internal ASM tool
-    dependsOn(tasks.downgradeJar)
-    group = "jvmdowngrader"
-    archiveClassifier = "downgraded-5"
-    outputs.upToDateWhen { false }
 
     doLast {
-        val jar = tasks.downgradeJar.get().archiveFile
+        val jar = archiveFile
         val dir = temporaryDir.resolve("downgradeJar5")
         dir.mkdirs()
 
@@ -147,7 +132,10 @@ val downgradeJar5 = tasks.register<Jar>("downgradeJar5") {
             into(dir)
         }
 
-        Retrofitter().retrofit(dir.toPath())
+        Retrofitter().run {
+            retrofit(dir.toPath())
+            //verify(dir.toPath())
+        }
 
         JarOutputStream(archiveFile.get().asFile.outputStream()).use { jos ->
             jos.setLevel(Deflater.BEST_COMPRESSION)
@@ -162,6 +150,13 @@ val downgradeJar5 = tasks.register<Jar>("downgradeJar5") {
             jos.finish()
         }
     }
+}
+
+val downgradeJar17 = tasks.register<DowngradeJar>("downgradeJar17") {
+    dependsOn(tasks.jar)
+    downgradeTo = JavaVersion.VERSION_17
+    inputFile = tasks.jar.get().archiveFile
+    archiveClassifier = "downgraded-17"
 }
 
 tasks.jar {
@@ -182,7 +177,7 @@ val sourcesJar: Jar = tasks.withType<Jar>()["sourcesJar"].apply {
 }
 
 tasks.assemble {
-    dependsOn(tasks.jar, sourcesJar, downgradeJar17, downgradeJar5)
+    dependsOn(tasks.jar, sourcesJar, downgradeJar17)
 }
 
 tasks.test {
@@ -225,7 +220,6 @@ publishing {
             artifact(tasks.jar) // java 21
             artifact(downgradeJar17) // java 17
             artifact(tasks.downgradeJar) // java 8
-            artifact(downgradeJar5) // java 5
             artifact(sourcesJar) // java 21 sources
             artifact(tasks["javadocJar"])
         }

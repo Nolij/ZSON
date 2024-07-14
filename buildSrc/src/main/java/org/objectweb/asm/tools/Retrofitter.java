@@ -157,12 +157,7 @@ public final class Retrofitter {
 	 * @throws IOException if a file can't be read.
 	 * @throws IllegalArgumentException if the module-info class does not have the expected content.
 	 */
-	public void verify(
-			final Path classesDir,
-			final String expectedVersion,
-			final List<String> expectedExports,
-			final List<String> expectedRequires)
-			throws IOException {
+	public void verify(final Path classesDir) throws IOException {
 		if (jdkApi.isEmpty()) {
 			readJdkApi();
 		}
@@ -173,11 +168,6 @@ public final class Retrofitter {
 			classReader.accept(new ClassVerifier(), 0);
 		}
 		checkPrivateMemberAccess(classReaders);
-		verifyModuleInfoClass(
-				classesDir,
-				expectedVersion,
-				new HashSet<>(expectedExports),
-				Stream.concat(expectedRequires.stream(), Stream.of(JAVA_BASE_MODULE)).collect(toSet()));
 	}
 
 	private List<ClassReader> getClassReaders(final List<Path> classFiles) throws IOException {
@@ -655,7 +645,7 @@ public final class Retrofitter {
 			// We also want to make sure we don't use Java 6, 7 or 8 classfile
 			// features (invokedynamic), but this can't be done in the same way.
 			// Instead, we use manual checks below.
-			super(Opcodes.ASM4, null);
+			super(Opcodes.ASM9, null);
 		}
 
 		@Override
@@ -682,7 +672,7 @@ public final class Retrofitter {
 			currentMethodName = name + descriptor;
 			MethodVisitor methodVisitor =
 					super.visitMethod(access, name, descriptor, signature, exceptions);
-			return new MethodVisitor(Opcodes.ASM4, methodVisitor) {
+			return new MethodVisitor(Opcodes.ASM9, methodVisitor) {
 				@Override
 				public void visitFieldInsn(
 						final int opcode, final String owner, final String name, final String descriptor) {
