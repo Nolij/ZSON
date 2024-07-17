@@ -157,7 +157,7 @@ public class ZsonTest {
 		{
 			"int": 42,
 			"float": 3.14,
-			"exp": 6.022e23,
+			"exp": 6.022E23,
 			"neg": -1,
 			"hex": 0x2A,
 			"inf": Infinity,
@@ -337,8 +337,11 @@ public class ZsonTest {
 		Map<String, ZsonValue> map = parseString("""
 		{
 			weirdEscapes: "\\A\\C\\/\\D\\C",
+			
+			// contains all "valid" whitespace characters
+			whitespace:\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u2028\u2029\ufeff ""
 		}
-		"""); // actually \A\C/\D\C but we need to escape the backslashes for java
+		"""); // weirdEscapes is actually \A\C/\D\C but we need to escape the backslashes for java
 
 		assertEquals("AC/DC", map.get("weirdEscapes").value);
 	}
