@@ -6,8 +6,10 @@ import dev.nolij.zson.ZsonValue;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static dev.nolij.zson.Zson.*;
@@ -374,6 +376,40 @@ public class ZsonTest {
 		}
 	}
 
+	@Test
+	public void testObjectFields() {
+		Map<String, ZsonValue> json = Zson.obj2Map(new ObjectFields());
+		String expected = """
+		{
+			"a": 0,
+			"set": [ "a", "b", "c", ],
+			"b": {
+				"bool": false,
+				"b": 0,
+				"s": 0,
+				"i": 0,
+				"l": 0,
+				"f": 0.0,
+				"d": 0.0,
+				"c": "\\0",
+				"str": null,
+				"e": null,
+			},
+			"c": "ONE",
+		}""";
+
+		String actual = new Zson().stringify(json);
+
+		assertEquals(expected, actual);
+
+		json = Zson.parseString(actual);
+
+		ObjectFields obj = Zson.map2Obj(json, ObjectFields.class);
+		assertEquals(0, obj.a);
+		assertEquals(0, obj.b.i);
+		assertEquals(TestEnum.ONE, obj.c);
+	}
+
 	public static class AllTypes {
 		public boolean bool;
 		public byte b;
@@ -385,6 +421,19 @@ public class ZsonTest {
 		public char c;
 		public String str;
 		public TestEnum e;
+	}
+
+	public static class ObjectFields {
+		public int a;
+		public Set<String> set = new HashSet<>();
+		public AllTypes b = new AllTypes();
+		public TestEnum c = TestEnum.ONE;
+
+		{
+			set.add("a");
+			set.add("b");
+			set.add("c");
+		}
 	}
 
 	public enum TestEnum {

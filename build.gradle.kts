@@ -123,7 +123,7 @@ tasks.downgradeJar {
     archiveClassifier = "downgraded-8"
 
     doLast {
-        val jar = archiveFile
+        val jar = archiveFile.get().asFile
         val dir = temporaryDir.resolve("downgradeJar5")
         dir.mkdirs()
 

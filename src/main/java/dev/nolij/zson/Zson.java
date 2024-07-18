@@ -12,6 +12,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
 
+import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -20,13 +21,7 @@ import java.lang.reflect.Modifier;
 
 import java.math.BigInteger;
 
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 import static dev.nolij.zson.ZsonValue.NO_COMMENT;
 
@@ -126,6 +121,9 @@ public final class Zson {
 				case 't' -> '\t';
 				case '\'', '\"', '\\', '\n', '\r' -> d;
 				case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
+					if(d == '0' && (i + 1 >= chars.length || chars[i + 1] < '0' || chars[i + 1] > '9')) {
+						yield '\0';
+					}
 					int limit = d < '4' ? 2 : 1;
 					int code = d - '0';
 					for (int k = 1; k < limit; k++) {
@@ -235,12 +233,27 @@ public final class Zson {
 		Map<String, ZsonValue> map = object();
 		for (Field field : object.getClass().getDeclaredFields()) {
 			if(!shouldInclude(field, true)) continue;
-			ZsonField value = field.getAnnotation(ZsonField.class);
-			String comment = value == null ? NO_COMMENT : value.comment();
+			ZsonField annotation = field.getAnnotation(ZsonField.class);
+			String comment = annotation == null ? NO_COMMENT : annotation.comment();
 			try {
 				boolean accessible = field.isAccessible();
 				if (!accessible) field.setAccessible(true);
-				map.put(field.getName(), new ZsonValue(comment, field.get(object)));
+
+				Object value = field.get(object);
+				if(value == null) {
+					map.put(field.getName(), new ZsonValue(comment, null));
+				} else if(value.getClass().isArray()) {
+					value = array((Object[]) value);
+				} else if(value instanceof Iterable) {
+					List<Object> list = new ArrayList<>();
+					for (Object o : (Iterable<?>) value) {
+						list.add(o);
+					}
+					value = list;
+				} else if(value instanceof Map) {
+					value = obj2Map(value);
+				}
+				map.put(field.getName(), new ZsonValue(comment, value));
 				if (!accessible) field.setAccessible(false);
 			} catch (IllegalAccessException e) {
 				throw new RuntimeException("Failed to get field " + field.getName(), e);
@@ -318,12 +331,52 @@ public final class Zson {
 					case "double" -> field.setDouble(object, ((Number) value).doubleValue());
 					case "long" -> field.setLong(object, ((Number) value).longValue());
 					case "byte" -> field.setByte(object, ((Number) value).byteValue());
-					case "char" -> field.setChar(object, (char) value);
+					case "char" -> field.setChar(object, ((String) value).charAt(0));
 				}
 			} else {
 				Object finalValue = value;
 				if (type.isEnum() && value instanceof String) {
 					finalValue = Enum.valueOf((Class<Enum>) type, (String) value);
+				} else if (type.isArray() && value instanceof Iterable<?> itr) {
+					int size = 0;
+					for (Object ignored : itr) size++;
+
+					Object array = Array.newInstance(type.getComponentType(), size);
+					int i = 0;
+					for (Object o : itr) {
+						Array.set(array, i++, o);
+					}
+					finalValue = array;
+				} else if (value instanceof Map && !Map.class.isAssignableFrom(type)) {
+					finalValue = map2Obj((Map<String, ZsonValue>) value, type);
+				} else if(Collection.class.isAssignableFrom(type)) {
+					Collection<Object> collection;
+					if(type.isInterface()) {
+						if(List.class.isAssignableFrom(type)) {
+							collection = new ArrayList<>();
+						} else if(Set.class.isAssignableFrom(type)) {
+							collection = new LinkedHashSet<>();
+						} else {
+							throw new IllegalArgumentException("Unsupported collection type: " + type);
+						}
+					} else {
+						collection = (Collection<Object>) type.getDeclaredConstructor().newInstance();
+					}
+
+					if(value.getClass().isArray()) {
+						int length = Array.getLength(value);
+						for (int i = 0; i < length; i++) {
+							collection.add(Array.get(value, i));
+						}
+					} else if(value instanceof Iterable<?> itr) {
+						for (Object o : itr) {
+							collection.add(o);
+						}
+					} else {
+						throw new IllegalArgumentException("Expected array or iterable, got " + value.getClass());
+					}
+
+					finalValue = collection;
 				}
 				field.set(object, finalValue);
 			}
@@ -1022,8 +1075,8 @@ public final class Zson {
 				// rethrow but without the recursive cause
 				throw new StackOverflowError("Map is circular");
 			}
-		} else if (value instanceof String stringValue) {
-			return '"' + escape(stringValue, '"') + '"';
+		} else if (value instanceof String || value instanceof Character) {
+			return '"' + escape(value.toString(), '"') + '"';
 		} else if (value instanceof Number || value instanceof Boolean || value == null) {
 			return String.valueOf(value);
 		} else if (value instanceof Iterable<?> iterableValue) {
@@ -1044,9 +1097,9 @@ public final class Zson {
 			return output.append("]").toString();
 		} else if(value instanceof Enum<?> enumValue) {
 			return '"' + enumValue.name() + '"';
+		} else {
+			return value(obj2Map(value));
 		}
-
-		throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getName());
 	}
 
 	@Contract(value = "_ -> this", mutates = "this")
