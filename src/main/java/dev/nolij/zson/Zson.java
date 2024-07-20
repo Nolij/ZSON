@@ -1038,7 +1038,7 @@ public final class Zson {
 
 	/**
 	 * Checks if the given string is a valid identifier.
-	 * @param key The string to check.sadasdf
+	 * @param key The string to check.
 	 * @return {@code true} if the string is a valid identifier, {@code false} otherwise.
 	 * @see #isIdentifierChar(int)
 	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.6">ECMAScript 5.1 §7.6</a>
