@@ -1089,14 +1089,15 @@ public final class Zson {
 			return String.valueOf(value);
 		} else if (value instanceof Iterable<?> iterableValue) {
 			StringBuilder output = new StringBuilder("[");
-			output.append(expandArrays ? "\n" : " ");
+			String indent = expandArrays ? this.indent : "";
+			output.append(indent);
 
 			boolean first = true;
 
 			for (Object obj : iterableValue) {
 				if (!first) {
 					output.append(",")
-							.append(expandArrays ? "\n" : " ");
+							.append(indent);
 				} else {
 					first = false;
 				}
@@ -1108,7 +1109,7 @@ public final class Zson {
 				output.append(value(obj).replace("\n", "\n" + indent + indent));
 			}
 
-			output.append(expandArrays ? "\n" : " ");
+			output.append(indent);
 
 			if (expandArrays)
 				output.append(indent);
