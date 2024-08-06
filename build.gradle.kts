@@ -160,9 +160,6 @@ val downgradeJar17 = tasks.register<DowngradeJar>("downgradeJar17") {
 }
 
 tasks.jar {
-    isPreserveFileTimestamps = false
-    isReproducibleFileOrder = true
-    
     from(rootProject.file("LICENSE")) {
         rename { "${it}_${rootProject.name}" }
     }
@@ -170,7 +167,7 @@ tasks.jar {
     finalizedBy(tasks.downgradeJar, downgradeJar17)
 }
 
-val sourcesJar: Jar = tasks.withType<Jar>()["sourcesJar"].apply {
+val sourcesJar = tasks.getByName<Jar>("sourcesJar") {
     from(rootProject.file("LICENSE")) {
         rename { "${it}_${rootProject.name}" }
     }
@@ -195,6 +192,11 @@ tasks.withType<JavaCompile> {
     javaCompiler = javaToolchains.compilerFor {
         languageVersion = JavaLanguageVersion.of(21)
     }
+}
+
+tasks.withType<AbstractArchiveTask> {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
 }
 
 githubRelease {
