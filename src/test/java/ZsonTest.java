@@ -79,13 +79,13 @@ public class ZsonTest {
 		    // The state of the address
 		    "state": "IL",
 		    // The zip code of the address
-		    "zip": 62701,
+		    "zip": 62701
 		  },
 		  // The phone numbers of the person
 		  "phoneNumbers": {
 		    "home": "217-555-1234",
-		    "cell": "217-555-5678",
-		  },
+		    "cell": "217-555-5678"
+		  }
 		}""";
 
 		assertEquals(expected, json);
@@ -190,7 +190,7 @@ public class ZsonTest {
 			"inf": Infinity,
 			"w": NaN,
 			"java": 3405691582,
-			"neginf": -Infinity,
+			"neginf": -Infinity
 		}""", new Zson().stringify(map));
 	}
 
@@ -204,7 +204,7 @@ public class ZsonTest {
 			"such": "amaze",
 			"very": true,
 			"constant": "wow",
-			"testEnum": "ONE",
+			"testEnum": "ONE"
 		}""";
 
 		String actual = new Zson().stringify(json);
@@ -306,7 +306,7 @@ public class ZsonTest {
 			such: "amaze",
 			very: true,
 			constant: "wow",
-			testEnum: "TWO",
+			testEnum: "TWO"
 		}""";
 
 		String actual = new Zson().withQuoteKeys(false).stringify(json);
@@ -382,7 +382,7 @@ public class ZsonTest {
 		String expected = """
 		{
 			"a": 0,
-			"set": [ "a", "b", "c", ],
+			"set": [ "a", "b", "c" ],
 			"b": {
 				"bool": false,
 				"b": 0,
@@ -393,9 +393,9 @@ public class ZsonTest {
 				"d": 0.0,
 				"c": "\\0",
 				"str": null,
-				"e": null,
+				"e": null
 			},
-			"c": "ONE",
+			"c": "ONE"
 		}""";
 
 		String actual = new Zson().stringify(json);

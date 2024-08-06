@@ -9,7 +9,7 @@ the terms of this License".
 A tiny JSON5 parsing library for Java 8, with a focus on simplicity and minimizing size.
 
 ## Usage
-First, include the library in your project. You can do this by adding the following to your build.gradle(.kts):
+First, include the library in your project. You can do this by adding the following to your `build.gradle(.kts)`:
 <details>
 <summary>Kotlin</summary>
 
@@ -90,14 +90,14 @@ This prints out:
   // comment
   "key": 4,
   // look, arrays work too!
-  "arr": [ 1, 2, 3, ],
+  "arr": [ 1, 2, 3 ],
   // and objects!
   "obj": {
-    "key": "value", 
+    "key": "value"
   },
   // comments can also
   // be multiple lines
-  "null": null,
+  "null": null
 }
 ```
 
@@ -121,7 +121,8 @@ public class Example {
 	public static void main(String[] args) {
 		Example example = new Example();
 		Map<String, ZsonValue> zson = Zson.obj2map(example);
-		System.out.println(new Zson().stringify(zson));
+		System.out.println(new Zson()
+                .withQuoteKeys(false).stringify(zson));
 	}
 }
 ```
@@ -130,8 +131,8 @@ This prints out:
 ```json5
 {
   // This is a comment
-  "key": "value",
-  "number": 4,
+  key: "value",
+  number: 4
 }
 ```
 

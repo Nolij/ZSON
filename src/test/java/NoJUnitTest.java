@@ -43,13 +43,13 @@ public final class NoJUnitTest {
 		    // The state of the address
 		    "state": "IL",
 		    // The zip code of the address
-		    "zip": 62701,
+		    "zip": 62701
 		  },
 		  // The phone numbers of the person
 		  "phoneNumbers": {
 		    "home": "217-555-1234",
 		    "cell": "217-555-5678",
-		  },
+		  }
 		}""";
 
 		assert expected.equals(json);

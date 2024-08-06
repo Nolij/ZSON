@@ -1008,7 +1008,15 @@ public final class Zson {
 	public void write(@NotNull Map<String, ZsonValue> data, @NotNull Appendable output) throws IOException {
 		output.append("{\n");
 
+		boolean first = true;
+
 		for (var entry : data.entrySet()) {
+			if (first) {
+				first = false;
+			} else {
+				output.append(",\n");
+			}
+
 			ZsonValue zv = entry.getValue();
 			String comment = zv.comment;
 
@@ -1030,10 +1038,10 @@ public final class Zson {
 			if (quoteKeys)
 				output.append('"');
 
-			output.append(": ").append(value(zv.value)).append(",\n");
+			output.append(": ").append(value(zv.value));
 		}
 
-		output.append("}");
+		output.append("\n}");
 	}
 
 	/**
@@ -1083,13 +1091,24 @@ public final class Zson {
 			StringBuilder output = new StringBuilder("[");
 			output.append(expandArrays ? "\n" : " ");
 
+			boolean first = true;
+
 			for (Object obj : iterableValue) {
-				if (expandArrays)
+				if (!first) {
+					output.append(",")
+							.append(expandArrays ? "\n" : " ");
+				} else {
+					first = false;
+				}
+
+				if (expandArrays) {
 					output.append(indent).append(indent);
-				output.append(value(obj).replace("\n", "\n" + indent + indent))
-						.append(",")
-						.append(expandArrays ? "\n" : " ");
+				}
+
+				output.append(value(obj).replace("\n", "\n" + indent + indent));
 			}
+
+			output.append(expandArrays ? "\n" : " ");
 
 			if (expandArrays)
 				output.append(indent);
