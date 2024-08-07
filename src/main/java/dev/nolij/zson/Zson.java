@@ -1089,7 +1089,7 @@ public final class Zson {
 			return String.valueOf(value);
 		} else if (value instanceof Iterable<?> iterableValue) {
 			StringBuilder output = new StringBuilder("[");
-			String indent = expandArrays ? this.indent : "";
+			String indent = expandArrays ? this.indent : " ";
 			output.append(indent);
 
 			boolean first = true;
