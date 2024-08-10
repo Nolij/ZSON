@@ -243,7 +243,12 @@ public final class Zson {
 				if(value == null) {
 					map.put(field.getName(), new ZsonValue(comment, null));
 				} else if(value.getClass().isArray()) {
-					value = array((Object[]) value);
+					List<Object> list = new ArrayList<>();
+					int length = Array.getLength(value);
+					for (int i = 0; i < length; i++) {
+						list.add(Array.get(value, i));
+					}
+					value = list;
 				} else if(value instanceof Iterable) {
 					List<Object> list = new ArrayList<>();
 					for (Object o : (Iterable<?>) value) {
@@ -274,7 +279,12 @@ public final class Zson {
 	@Contract("_ , _ -> new")
 	public static <T> T map2Obj(@NotNull Map<String, ZsonValue> map, @NotNull Class<T> type) {
 		try {
-			T object = type.getDeclaredConstructor().newInstance();
+			T object;
+			if(type.isArray()) {
+				object = (T) Array.newInstance(type.getComponentType(), map.size());
+			} else {
+				object = type.getDeclaredConstructor().newInstance();
+			}
 			for (Field field : type.getDeclaredFields()) {
 				if(!shouldInclude(field, false)) continue;
 				if(!map.containsKey(field.getName())) {
@@ -1068,7 +1078,7 @@ public final class Zson {
 	 * @return a JSON5-compatible string representation of the value.
 	 */
 	@SuppressWarnings("unchecked")
-	private String value(Object value) {
+	public String value(Object value) {
 		if (value instanceof Map<?, ?>) {
 			try {
 				return stringify((Map<String, ZsonValue>) value).replace("\n", "\n" + indent);
@@ -1096,8 +1106,7 @@ public final class Zson {
 
 			for (Object obj : iterableValue) {
 				if (!first) {
-					output.append(",")
-							.append(indent);
+					output.append(",").append(indent);
 				} else {
 					first = false;
 				}

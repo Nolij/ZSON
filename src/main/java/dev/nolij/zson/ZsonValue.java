@@ -48,7 +48,10 @@ public final class ZsonValue {
 
 	@Override
 	public String toString() {
-		// TODO: maybe the comment should be added here too
-		return String.valueOf(value);
+		StringBuilder sb = new StringBuilder("ZsonValue{");
+		if(!comment.equals(NO_COMMENT)) {
+			sb.append("comment='").append(comment).append("', ");
+		}
+		return sb.append("value=").append(value).append('}').toString();
 	}
 }
