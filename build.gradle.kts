@@ -108,7 +108,7 @@ repositories {
 dependencies {
     compileOnly("org.jetbrains:annotations:${"jetbrains_annotations_version"()}")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.11.0-M1")
+    testImplementation("org.junit.jupiter:junit-jupiter:${"junit_version"()}")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
