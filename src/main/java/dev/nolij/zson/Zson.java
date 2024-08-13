@@ -240,8 +240,9 @@ public final class Zson {
 				if (!accessible) field.setAccessible(true);
 
 				Object value = field.get(object);
-				if(value == null) {
-					map.put(field.getName(), new ZsonValue(comment, null));
+
+				if(value instanceof Map) { // also checks for null
+					value = obj2Map(value);
 				} else if(value.getClass().isArray()) {
 					List<Object> list = new ArrayList<>();
 					int length = Array.getLength(value);
@@ -255,9 +256,8 @@ public final class Zson {
 						list.add(o);
 					}
 					value = list;
-				} else if(value instanceof Map) {
-					value = obj2Map(value);
 				}
+
 				map.put(field.getName(), new ZsonValue(comment, value));
 				if (!accessible) field.setAccessible(false);
 			} catch (IllegalAccessException e) {
@@ -277,6 +277,7 @@ public final class Zson {
 	 */
 	@NotNull
 	@Contract("_ , _ -> new")
+	@SuppressWarnings("unchecked")
 	public static <T> T map2Obj(@NotNull Map<String, ZsonValue> map, @NotNull Class<T> type) {
 		try {
 			T object;
