@@ -241,21 +241,23 @@ public final class Zson {
 
 				Object value = field.get(object);
 
-				if(value instanceof Map) { // also checks for null
+				if(value instanceof Map) {
 					value = obj2Map(value);
-				} else if(value.getClass().isArray()) {
-					List<Object> list = new ArrayList<>();
-					int length = Array.getLength(value);
-					for (int i = 0; i < length; i++) {
-						list.add(Array.get(value, i));
-					}
-					value = list;
 				} else if(value instanceof Iterable) {
 					List<Object> list = new ArrayList<>();
 					for (Object o : (Iterable<?>) value) {
 						list.add(o);
 					}
 					value = list;
+				} else if(value != null) {
+					if(value.getClass().isArray()) {
+						List<Object> list = new ArrayList<>();
+						int length = Array.getLength(value);
+						for (int i = 0; i < length; i++) {
+							list.add(Array.get(value, i));
+						}
+						value = list;
+					}
 				}
 
 				map.put(field.getName(), new ZsonValue(comment, value));
