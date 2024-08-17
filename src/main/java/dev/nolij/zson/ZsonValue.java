@@ -1,5 +1,6 @@
 package dev.nolij.zson;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
@@ -10,9 +11,14 @@ import java.util.Objects;
 public final class ZsonValue {
 
 	/**
-	 * The comment for this value. If null, there is no comment.
+	 * The value for {@link #comment} when there is no comment, represented as the null character.
 	 */
-	@Nullable
+	public static final String NO_COMMENT = "\0";
+
+	/**
+	 * The comment for this value. If the comment is {@link #NO_COMMENT}, then there is no comment.
+	 */
+	@NotNull
 	public String comment;
 
 	/**
@@ -21,13 +27,13 @@ public final class ZsonValue {
 	@Nullable
 	public Object value;
 	
-	public ZsonValue(@Nullable String comment, @Nullable Object value) {
+	public ZsonValue(@NotNull String comment, @Nullable Object value) {
 		this.comment = comment;
 		this.value = value;
 	}
 	
 	public ZsonValue(Object value) {
-		this(null, value);
+		this(NO_COMMENT, value);
 	}
 
 	@Override
@@ -42,7 +48,10 @@ public final class ZsonValue {
 
 	@Override
 	public String toString() {
-		// TODO: maybe the comment should be added here too
-		return String.valueOf(value);
+		StringBuilder sb = new StringBuilder("ZsonValue{");
+		if(!comment.equals(NO_COMMENT)) {
+			sb.append("comment='").append(comment).append("', ");
+		}
+		return sb.append("value=").append(value).append('}').toString();
 	}
 }

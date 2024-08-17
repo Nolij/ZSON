@@ -9,7 +9,7 @@ the terms of this License".
 A tiny JSON5 parsing library for Java 8, with a focus on simplicity and minimizing size.
 
 ## Usage
-First, include the library in your project. You can do this by adding the following to your build.gradle(.kts):
+First, include the library in your project. You can do this by adding the following to your `build.gradle(.kts)`:
 <details>
 <summary>Kotlin</summary>
 
@@ -19,7 +19,7 @@ repositories {
 }
 
 dependencies {
-    implementation("dev.nolij:zson:version")
+    implementation("dev.nolij:zson:[version]")
 }
 ```
 </details>
@@ -32,13 +32,25 @@ repositories {
 }
 
 dependencies {
-    implementation 'dev.nolij:zson:version'
+    implementation 'dev.nolij:zson:[version]'
 }
 ```
 </details>
 
-Replace `version` with the version of the library you want to use.
+Replace `[version]` with the version of the library you want to use.
 You can find the latest version on the [releases page](https://github.com/Nolij/ZSON/releases).
+
+If you wish to use an older version of Java, we provide 2 downgraded jars for Java 17 and 8.
+You can use them by appending a classifier `downgraded-[java version]` to the dependency, for example:
+`implementation("dev.nolij:zson:[version]:downgraded-8")`.
+
+<details>
+<summary>A note about Java 8</summary>
+
+The Java 8 version actually uses Java 5 bytecode (classfile version 49), but because we use Java 8 features (namely NIO),
+it still requires Java 8 to run. The reason for doing this is that Java 5 bytecode doesn't have stack maps, which significantly
+reduces the size of the resulting jar.
+</details>
 
 Then, you can use the library like so:
 ```java
@@ -65,6 +77,7 @@ public class ZsonExample {
 				)),
 				entry("null", "comments can also\nbe multiple lines", null)
 		);
+		String jsonString = writer.stringify(map);
 		System.out.println(jsonString);
 	}
 }
@@ -77,14 +90,14 @@ This prints out:
   // comment
   "key": 4,
   // look, arrays work too!
-  "arr": [ 1, 2, 3, ],
+  "arr": [ 1, 2, 3 ],
   // and objects!
   "obj": {
-    "key": "value", 
+    "key": "value"
   },
   // comments can also
   // be multiple lines
-  "null": null,
+  "null": null
 }
 ```
 
@@ -108,7 +121,8 @@ public class Example {
 	public static void main(String[] args) {
 		Example example = new Example();
 		Map<String, ZsonValue> zson = Zson.obj2map(example);
-		System.out.println(new Zson().stringify(zson));
+		System.out.println(new Zson()
+                .withQuoteKeys(false).stringify(zson));
 	}
 }
 ```
@@ -117,8 +131,8 @@ This prints out:
 ```json5
 {
   // This is a comment
-  "key": "value",
-  "number": 4,
+  key: "value",
+  number: 4
 }
 ```
 

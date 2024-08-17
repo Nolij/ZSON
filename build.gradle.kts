@@ -1,5 +1,9 @@
+import org.objectweb.asm.tools.Retrofitter
 import xyz.wagyourtail.jvmdg.gradle.task.DowngradeJar
 import java.time.ZonedDateTime
+import java.util.jar.JarEntry
+import java.util.jar.JarOutputStream
+import java.util.zip.Deflater
 
 plugins {
     id("idea")
@@ -45,7 +49,7 @@ val releaseIncrement = if (isExternalCI) 0 else 1
 val releaseChannel: ReleaseChannel =
     if (isExternalCI) {
         val tagName = releaseTags.first().name
-        val suffix = """\-(\w+)\.\d+$""".toRegex().find(tagName)?.groupValues?.get(1)
+        val suffix = """-(\w+)\.\d+$""".toRegex().find(tagName)?.groupValues?.get(1)
         if (suffix != null)
             ReleaseChannel.values().find { channel -> channel.suffix == suffix }!!
         else
@@ -89,6 +93,14 @@ val versionTagName = "${releaseTagPrefix}${versionString}"
 version = versionString
 println("ZSON Version: $versionString")
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+
+    withSourcesJar()
+    withJavadocJar()
+}
+
 repositories {
     mavenCentral()
 }
@@ -96,14 +108,48 @@ repositories {
 dependencies {
     compileOnly("org.jetbrains:annotations:${"jetbrains_annotations_version"()}")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.11.0-M1")
+    testImplementation("org.junit.jupiter:junit-jupiter:${"junit_version"()}")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.javadoc {
+    val options = options as StandardJavadocDocletOptions
+    options.addBooleanOption("Xdoclint:none", true)
 }
 
 tasks.downgradeJar {
     dependsOn(tasks.jar)
     downgradeTo = JavaVersion.VERSION_1_8
     archiveClassifier = "downgraded-8"
+
+    doLast {
+        val jar = archiveFile.get().asFile
+        val dir = temporaryDir.resolve("downgradeJar5")
+        dir.mkdirs()
+
+        copy {
+            from(zipTree(jar))
+            into(dir)
+        }
+
+        Retrofitter().run {
+            retrofit(dir.toPath())
+            //verify(dir.toPath())
+        }
+
+        JarOutputStream(archiveFile.get().asFile.outputStream()).use { jos ->
+            jos.setLevel(Deflater.BEST_COMPRESSION)
+            dir.walkTopDown().forEach { file ->
+                if (file.isFile) {
+                    jos.putNextEntry(JarEntry(file.relativeTo(dir).toPath().toString()))
+                    file.inputStream().use { it.copyTo(jos) }
+                    jos.closeEntry()
+                }
+            }
+            jos.flush()
+            jos.finish()
+        }
+    }
 }
 
 val downgradeJar17 = tasks.register<DowngradeJar>("downgradeJar17") {
@@ -114,9 +160,6 @@ val downgradeJar17 = tasks.register<DowngradeJar>("downgradeJar17") {
 }
 
 tasks.jar {
-    isPreserveFileTimestamps = false
-    isReproducibleFileOrder = true
-    
     from(rootProject.file("LICENSE")) {
         rename { "${it}_${rootProject.name}" }
     }
@@ -124,19 +167,19 @@ tasks.jar {
     finalizedBy(tasks.downgradeJar, downgradeJar17)
 }
 
-java.withSourcesJar()
-val sourcesJar: Jar = tasks.withType<Jar>()["sourcesJar"].apply {
+val sourcesJar = tasks.getByName<Jar>("sourcesJar") {
     from(rootProject.file("LICENSE")) {
         rename { "${it}_${rootProject.name}" }
     }
 }
 
 tasks.assemble {
-    dependsOn(tasks.jar, sourcesJar)
+    dependsOn(tasks.jar, sourcesJar, downgradeJar17)
 }
 
 tasks.test {
     useJUnitPlatform()
+    outputs.upToDateWhen { false }
 }
 
 tasks.withType<GenerateModuleMetadata> {
@@ -149,6 +192,11 @@ tasks.withType<JavaCompile> {
     javaCompiler = javaToolchains.compilerFor {
         languageVersion = JavaLanguageVersion.of(21)
     }
+}
+
+tasks.withType<AbstractArchiveTask> {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
 }
 
 githubRelease {
@@ -175,6 +223,7 @@ publishing {
             artifact(downgradeJar17) // java 17
             artifact(tasks.downgradeJar) // java 8
             artifact(sourcesJar) // java 21 sources
+            artifact(tasks["javadocJar"])
         }
     }
 }

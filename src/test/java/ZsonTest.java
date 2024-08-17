@@ -6,14 +6,21 @@ import dev.nolij.zson.ZsonValue;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static dev.nolij.zson.Zson.*;
 
 @SuppressWarnings({"unused", "DataFlowIssue", "FieldMayBeFinal"})
 public class ZsonTest {
+
+	@Test
+	public void makeSureTestsRun() {
+		System.out.println("Tests are running!");
+	}
 
 	@Test
 	public void json5Spec() throws IOException {
@@ -23,7 +30,7 @@ public class ZsonTest {
 		assertEquals(map, object(
 			entry("unquoted", "and you can quote me on that"),
 			entry("singleQuotes", "I can use \"double quotes\" here"),
-			entry("lineBreaks", "Look, Mom! \nNo \\n's!"),
+			entry("lineBreaks", "Look, Mom! No \\n's!"),
 			entry("hexadecimal", 0xdecaf),
 			entry("leadingDecimalPoint", .8675309),
 			entry("andTrailing", 8675309.),
@@ -72,13 +79,13 @@ public class ZsonTest {
 		    // The state of the address
 		    "state": "IL",
 		    // The zip code of the address
-		    "zip": 62701,
+		    "zip": 62701
 		  },
 		  // The phone numbers of the person
 		  "phoneNumbers": {
 		    "home": "217-555-1234",
-		    "cell": "217-555-5678",
-		  },
+		    "cell": "217-555-5678"
+		  }
 		}""";
 
 		assertEquals(expected, json);
@@ -143,7 +150,7 @@ public class ZsonTest {
 		assertEquals(Double.POSITIVE_INFINITY, map.get("inf").value);
 		assertEquals(Double.NEGATIVE_INFINITY, map.get("neginf").value);
 		assertTrue(Double.isNaN((double) map.get("nan").value));
-		assertEquals("wow look\n\ta multiline string", map.get("multiline-string").value);
+		assertEquals("wow look\ta multiline string", map.get("multiline-string").value);
 	}
 
 	@Test
@@ -152,11 +159,12 @@ public class ZsonTest {
 		{
 			"int": 42,
 			"float": 3.14,
-			"exp": 6.022e23,
+			"exp": 6.022E23,
 			"neg": -1,
 			"hex": 0x2A,
 			"inf": Infinity,
 			"w": NaN,
+			java: 0XcAfeBabE,
 			"neginf": -Infinity,
 		}""";
 
@@ -169,6 +177,7 @@ public class ZsonTest {
 		assertEquals(42, map.get("hex").value);
 		assertEquals(Double.POSITIVE_INFINITY, map.get("inf").value);
 		assertTrue(Double.isNaN((Double) map.get("w").value));
+		assertEquals(0xcAfeBabEL, map.get("java").value); // the extra L is because it's a long
 		assertEquals(Double.NEGATIVE_INFINITY, map.get("neginf").value);
 
 		assertEquals("""
@@ -180,7 +189,8 @@ public class ZsonTest {
 			"hex": 42,
 			"inf": Infinity,
 			"w": NaN,
-			"neginf": -Infinity,
+			"java": 3405691582,
+			"neginf": -Infinity
 		}""", new Zson().stringify(map));
 	}
 
@@ -194,7 +204,7 @@ public class ZsonTest {
 			"such": "amaze",
 			"very": true,
 			"constant": "wow",
-			"testEnum": "ONE",
+			"testEnum": "ONE"
 		}""";
 
 		String actual = new Zson().stringify(json);
@@ -296,7 +306,7 @@ public class ZsonTest {
 			such: "amaze",
 			very: true,
 			constant: "wow",
-			testEnum: "TWO",
+			testEnum: "TWO"
 		}""";
 
 		String actual = new Zson().withQuoteKeys(false).stringify(json);
@@ -310,6 +320,32 @@ public class ZsonTest {
 		TestObject obj2 = map2Obj(parsed, TestObject.class);
 
 		assertEquals(obj, obj2);
+	}
+
+	@Test
+	public void newlinesInStrings() throws IOException {
+		Map<String, ZsonValue> map = parseFile(Path.of("multiline.json5")); // kept in a separate file because the newlines are weird
+
+		assertEquals("newline", map.get("cr").value);
+		assertEquals("newline", map.get("lf").value);
+		assertEquals("newline", map.get("crlf").value);
+		assertEquals("newline", map.get("u2028").value);
+		assertEquals("newline", map.get("u2029").value);
+		assertEquals("new\nline", map.get("escaped").value);
+	}
+
+	@Test
+	public void otherRandomStuff() {
+		Map<String, ZsonValue> map = parseString("""
+		{
+			weirdEscapes: "\\A\\C\\/\\D\\C",
+			
+			// contains all "valid" whitespace characters
+			whitespace:\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u2028\u2029\ufeff ""
+		}
+		"""); // weirdEscapes is actually \A\C/\D\C but we need to escape the backslashes for java
+
+		assertEquals("AC/DC", map.get("weirdEscapes").value);
 	}
 
 	public static class TestObject {
@@ -340,6 +376,40 @@ public class ZsonTest {
 		}
 	}
 
+	@Test
+	public void testObjectFields() {
+		Map<String, ZsonValue> json = Zson.obj2Map(new ObjectFields());
+		String expected = """
+		{
+			"a": 0,
+			"set": [ "a", "b", "c" ],
+			"b": {
+				"bool": false,
+				"b": 0,
+				"s": 0,
+				"i": 0,
+				"l": 0,
+				"f": 0.0,
+				"d": 0.0,
+				"c": "\\0",
+				"str": null,
+				"e": null
+			},
+			"c": "ONE"
+		}""";
+
+		String actual = new Zson().stringify(json);
+
+		assertEquals(expected, actual);
+
+		json = Zson.parseString(actual);
+
+		ObjectFields obj = Zson.map2Obj(json, ObjectFields.class);
+		assertEquals(0, obj.a);
+		assertEquals(0, obj.b.i);
+		assertEquals(TestEnum.ONE, obj.c);
+	}
+
 	public static class AllTypes {
 		public boolean bool;
 		public byte b;
@@ -351,6 +421,19 @@ public class ZsonTest {
 		public char c;
 		public String str;
 		public TestEnum e;
+	}
+
+	public static class ObjectFields {
+		public int a;
+		public Set<String> set = new HashSet<>();
+		public AllTypes b = new AllTypes();
+		public TestEnum c = TestEnum.ONE;
+
+		{
+			set.add("a");
+			set.add("b");
+			set.add("c");
+		}
 	}
 
 	public enum TestEnum {

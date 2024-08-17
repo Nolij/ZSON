@@ -12,6 +12,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
 
+import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -20,28 +21,25 @@ import java.lang.reflect.Modifier;
 
 import java.math.BigInteger;
 
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-@SuppressWarnings({"deprecation", "UnstableApiUsage"})
+import static dev.nolij.zson.ZsonValue.NO_COMMENT;
+
+@SuppressWarnings({"deprecation", "UnstableApiUsage", "BooleanMethodIsAlwaysInverted"})
 public final class Zson {
-	//region Helper Methods
+	//region -------------------- Helper Methods --------------------
 
 	/**
 	 * Create a new entry with the given key, comment, and value.
 	 */
 	@NotNull
 	@Contract("_, _, _ -> new")
-	public static Map.Entry<String, ZsonValue> entry(@NotNull String key, @Nullable String comment, @Nullable Object value) {
+	public static Map.Entry<String, ZsonValue> entry(@NotNull String key, @NotNull String comment, @Nullable Object value) {
 		return new AbstractMap.SimpleEntry<>(key, new ZsonValue(comment, value));
 	}
 
 	/**
-	 * Create a new entry with the given key and value. The comment will be null.
+	 * Create a new entry with the given key and value, and no comment.
 	 */
 	@NotNull
 	@Contract(value = "_, _ -> new", pure = true)
@@ -123,6 +121,9 @@ public final class Zson {
 				case 't' -> '\t';
 				case '\'', '\"', '\\', '\n', '\r' -> d;
 				case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
+					if(d == '0' && (i + 1 >= chars.length || chars[i + 1] < '0' || chars[i + 1] > '9')) {
+						yield '\0';
+					}
 					int limit = d < '4' ? 2 : 1;
 					int code = d - '0';
 					for (int k = 1; k < limit; k++) {
@@ -142,7 +143,9 @@ public final class Zson {
 					i += 4;
 					yield (char) Integer.parseInt(hex, 16);
 				}
-				default -> throw new IllegalArgumentException(String.format("Invalid escape sequence: \\%c \\\\u%04X", d, (int) d));
+
+				// JSON5 spec says to ignore invalid escape sequences
+				default -> d;
 			};
 
 			chars[j++] = c;
@@ -230,12 +233,34 @@ public final class Zson {
 		Map<String, ZsonValue> map = object();
 		for (Field field : object.getClass().getDeclaredFields()) {
 			if(!shouldInclude(field, true)) continue;
-			ZsonField value = field.getAnnotation(ZsonField.class);
-			String comment = value == null ? null : value.comment();
+			ZsonField annotation = field.getAnnotation(ZsonField.class);
+			String comment = annotation == null ? NO_COMMENT : annotation.comment();
 			try {
 				boolean accessible = field.isAccessible();
 				if (!accessible) field.setAccessible(true);
-				map.put(field.getName(), new ZsonValue("\0".equals(comment) ? null : comment, field.get(object)));
+
+				Object value = field.get(object);
+
+				if(value instanceof Map) {
+					value = obj2Map(value);
+				} else if(value instanceof Iterable) {
+					List<Object> list = new ArrayList<>();
+					for (Object o : (Iterable<?>) value) {
+						list.add(o);
+					}
+					value = list;
+				} else if(value != null) {
+					if(value.getClass().isArray()) {
+						List<Object> list = new ArrayList<>();
+						int length = Array.getLength(value);
+						for (int i = 0; i < length; i++) {
+							list.add(Array.get(value, i));
+						}
+						value = list;
+					}
+				}
+
+				map.put(field.getName(), new ZsonValue(comment, value));
 				if (!accessible) field.setAccessible(false);
 			} catch (IllegalAccessException e) {
 				throw new RuntimeException("Failed to get field " + field.getName(), e);
@@ -254,9 +279,15 @@ public final class Zson {
 	 */
 	@NotNull
 	@Contract("_ , _ -> new")
+	@SuppressWarnings("unchecked")
 	public static <T> T map2Obj(@NotNull Map<String, ZsonValue> map, @NotNull Class<T> type) {
 		try {
-			T object = type.getDeclaredConstructor().newInstance();
+			T object;
+			if(type.isArray()) {
+				object = (T) Array.newInstance(type.getComponentType(), map.size());
+			} else {
+				object = type.getDeclaredConstructor().newInstance();
+			}
 			for (Field field : type.getDeclaredFields()) {
 				if(!shouldInclude(field, false)) continue;
 				if(!map.containsKey(field.getName())) {
@@ -279,7 +310,6 @@ public final class Zson {
 	 *                           otherwise they are not included at all.
 	 * @return true if the field should be included in a JSON map, false otherwise.
 	 */
-	@SuppressWarnings("BooleanMethodIsAlwaysInverted")
 	private static boolean shouldInclude(Field field, boolean forDeserialization) {
 		ZsonField value = field.getAnnotation(ZsonField.class);
 
@@ -314,12 +344,52 @@ public final class Zson {
 					case "double" -> field.setDouble(object, ((Number) value).doubleValue());
 					case "long" -> field.setLong(object, ((Number) value).longValue());
 					case "byte" -> field.setByte(object, ((Number) value).byteValue());
-					case "char" -> field.setChar(object, (char) value);
+					case "char" -> field.setChar(object, ((String) value).charAt(0));
 				}
 			} else {
 				Object finalValue = value;
 				if (type.isEnum() && value instanceof String) {
 					finalValue = Enum.valueOf((Class<Enum>) type, (String) value);
+				} else if (type.isArray() && value instanceof Iterable<?> itr) {
+					int size = 0;
+					for (Object ignored : itr) size++;
+
+					Object array = Array.newInstance(type.getComponentType(), size);
+					int i = 0;
+					for (Object o : itr) {
+						Array.set(array, i++, o);
+					}
+					finalValue = array;
+				} else if (value instanceof Map && !Map.class.isAssignableFrom(type)) {
+					finalValue = map2Obj((Map<String, ZsonValue>) value, type);
+				} else if(Collection.class.isAssignableFrom(type)) {
+					Collection<Object> collection;
+					if(type.isInterface()) {
+						if(List.class.isAssignableFrom(type)) {
+							collection = new ArrayList<>();
+						} else if(Set.class.isAssignableFrom(type)) {
+							collection = new LinkedHashSet<>();
+						} else {
+							throw new IllegalArgumentException("Unsupported collection type: " + type);
+						}
+					} else {
+						collection = (Collection<Object>) type.getDeclaredConstructor().newInstance();
+					}
+
+					if(value.getClass().isArray()) {
+						int length = Array.getLength(value);
+						for (int i = 0; i < length; i++) {
+							collection.add(Array.get(value, i));
+						}
+					} else if(value instanceof Iterable<?> itr) {
+						for (Object o : itr) {
+							collection.add(o);
+						}
+					} else {
+						throw new IllegalArgumentException("Expected array or iterable, got " + value.getClass());
+					}
+
+					finalValue = collection;
 				}
 				field.set(object, finalValue);
 			}
@@ -335,7 +405,7 @@ public final class Zson {
 
 	//endregion
 
-	//region Parser
+	//region -------------------- Parser --------------------
 	/**
 	 * Parses a JSON value from the contents of the given {@link Path}.
 	 * If the file contains multiple JSON values, only the first one will be parsed.
@@ -555,12 +625,16 @@ public final class Zson {
 				escapes--;
 			}
 
-			if (c == '\n') {
-				if (escapes == 0)
-					throw new IllegalArgumentException("Unexpected newline");
+			if (isLineTerminator(c)) {
+				if (escapes == 0) {
+					if (c == '\u2028' || c == '\u2029') {
+						System.err.println("[ZSON] Warning: unescaped line separator in string literal");
+					} else {
+						throw new IllegalArgumentException("Unexpected newline");
+					}
+				}
 
 				escapes = 0;
-				output.append('\n');
 				continue;
 			}
 
@@ -652,6 +726,22 @@ public final class Zson {
 	}
 
 	/**
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.2">ECMAScript 5.1 §7.2</a>
+	 */
+	private static boolean isWhitespace(int c) {
+		return c == '\t' || c == '\n' || c == '\f' || c == '\r' || c == ' '
+				|| c == 0x00A0 || c == 0xFEFF || Character.getType(c) == Character.SPACE_SEPARATOR;
+	}
+
+	/**
+	 * @see <a href="https://262.ecma-international.org/5.1/#sec-7.3">ECMAScript 5.1 §7.3</a>
+
+	 */
+	private static boolean isLineTerminator(int c) {
+		return c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
+	}
+
+	/**
 	 * Parses a JSON boolean from the given {@link Reader}. The reader should be positioned at the start of the boolean.
 	 * @param input The reader to parse the boolean from
 	 * @param start The first character of the boolean
@@ -740,7 +830,12 @@ public final class Zson {
 							hexValueBuilder.append(Character.toChars(c));
 						} else {
 							input.reset();
-							return Integer.parseInt(hexValueBuilder.toString(), 16);
+							long l = Long.parseLong(hexValueBuilder.toString().toUpperCase(Locale.ROOT), 16);
+							if(l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE) {
+								return (int) l;
+							} else {
+								return l;
+							}
 						}
 					}
 
@@ -817,7 +912,7 @@ public final class Zson {
 		int c;
 		var skipped = 0;
 		while ((c = input.read()) != -1) {
-			if (!Character.isWhitespace(c)) {
+			if (!isWhitespace(c) && !isLineTerminator(c)) {
 				input.reset();
 
 				return skipped != 0;
@@ -873,9 +968,9 @@ public final class Zson {
 	}
 	//endregion
 
-	//region Writer
+	//region -------------------- Writer --------------------
 	public String indent;
-	public boolean expandArrays;
+	public boolean expandArrays; // whether to put each array element on its own line
 	public boolean quoteKeys;
 
 	public Zson() {
@@ -926,11 +1021,19 @@ public final class Zson {
 	public void write(@NotNull Map<String, ZsonValue> data, @NotNull Appendable output) throws IOException {
 		output.append("{\n");
 
+		boolean first = true;
+
 		for (var entry : data.entrySet()) {
+			if (first) {
+				first = false;
+			} else {
+				output.append(",\n");
+			}
+
 			ZsonValue zv = entry.getValue();
 			String comment = zv.comment;
 
-			if (comment != null) {
+			if (!NO_COMMENT.equals(comment)) {
 				for (String line : comment.split("\n")) {
 					output
 							.append(indent)
@@ -948,10 +1051,10 @@ public final class Zson {
 			if (quoteKeys)
 				output.append('"');
 
-			output.append(": ").append(value(zv.value)).append(",\n");
+			output.append(": ").append(value(zv.value));
 		}
 
-		output.append("}");
+		output.append("\n}");
 	}
 
 	/**
@@ -977,10 +1080,10 @@ public final class Zson {
 	 * @param value The value to convert.
 	 * @return a JSON5-compatible string representation of the value.
 	 */
-	private String value(Object value) {
+	@SuppressWarnings("unchecked")
+	public String value(Object value) {
 		if (value instanceof Map<?, ?>) {
 			try {
-				//noinspection unchecked
 				return stringify((Map<String, ZsonValue>) value).replace("\n", "\n" + indent);
 			} catch (ClassCastException e) {
 				if(e.getMessage().contains("cannot be cast to")) {
@@ -993,21 +1096,32 @@ public final class Zson {
 				// rethrow but without the recursive cause
 				throw new StackOverflowError("Map is circular");
 			}
-		} else if (value instanceof String stringValue) {
-			return '"' + escape(stringValue, '"') + '"';
+		} else if (value instanceof String || value instanceof Character) {
+			return '"' + escape(value.toString(), '"') + '"';
 		} else if (value instanceof Number || value instanceof Boolean || value == null) {
 			return String.valueOf(value);
 		} else if (value instanceof Iterable<?> iterableValue) {
 			StringBuilder output = new StringBuilder("[");
-			output.append(expandArrays ? "\n" : " ");
+			String indent = expandArrays ? this.indent : " ";
+			output.append(indent);
+
+			boolean first = true;
 
 			for (Object obj : iterableValue) {
-				if (expandArrays)
+				if (!first) {
+					output.append(",").append(indent);
+				} else {
+					first = false;
+				}
+
+				if (expandArrays) {
 					output.append(indent).append(indent);
-				output.append(value(obj).replace("\n", "\n" + indent + indent))
-						.append(",")
-						.append(expandArrays ? "\n" : " ");
+				}
+
+				output.append(value(obj).replace("\n", "\n" + indent + indent));
 			}
+
+			output.append(indent);
 
 			if (expandArrays)
 				output.append(indent);
@@ -1015,13 +1129,18 @@ public final class Zson {
 			return output.append("]").toString();
 		} else if(value instanceof Enum<?> enumValue) {
 			return '"' + enumValue.name() + '"';
+		} else {
+			return value(obj2Map(value));
 		}
-
-		throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getName());
 	}
 
 	@Contract(value = "_ -> this", mutates = "this")
 	public Zson withIndent(String indent) {
+		for(char c : indent.toCharArray()) {
+			if(!isWhitespace(c)) {
+				throw new IllegalArgumentException("Indent '" + indent + "' must be a whitespace string");
+			}
+		}
 		this.indent = indent;
 		return this;
 	}
