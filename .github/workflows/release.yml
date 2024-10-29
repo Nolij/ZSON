@@ -1,6 +1,10 @@
 name: release
 on: [ workflow_dispatch ]
 
+env:
+  MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+  MAVEN_SECRET: ${{ secrets.MAVEN_SECRET }}
+
 jobs:
   publish:
     runs-on: ubuntu-20.04
@@ -19,7 +23,7 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           cache-read-only: true
       - name: :release
-        run: ./gradlew githubRelease -Prelease_channel=RELEASE
+        run: ./gradlew publish -Prelease_channel=RELEASE
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GRGIT_USER: ${{ secrets.GITHUB_TOKEN }}

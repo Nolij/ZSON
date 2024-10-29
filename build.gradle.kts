@@ -211,10 +211,25 @@ tasks.githubRelease {
     dependsOn(tasks.assemble, tasks.check)
 }
 
+if (!isExternalCI) {
+    tasks.publish {
+        dependsOn(tasks.githubRelease)
+    }
+}
+
 publishing {
     repositories {
         if (!System.getenv("local_maven_url").isNullOrEmpty())
             maven(System.getenv("local_maven_url"))
+        
+        if (!isExternalCI) {
+            maven("https://maven.taumc.org/releases") {
+                credentials {
+                    username = System.getenv("MAVEN_USERNAME")
+                    password = System.getenv("MAVEN_SECRET")
+                }
+            }
+        }
     }
 
     publications {
