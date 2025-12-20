@@ -235,6 +235,7 @@ public final class Zson {
 			if(!shouldInclude(field, true)) continue;
 			ZsonField annotation = field.getAnnotation(ZsonField.class);
 			String comment = annotation == null ? NO_COMMENT : annotation.comment();
+			String format = annotation == null ? "%s" : annotation.format();
 			try {
 				boolean accessible = field.isAccessible();
 				if (!accessible) field.setAccessible(true);
@@ -260,7 +261,7 @@ public final class Zson {
 					}
 				}
 
-				map.put(field.getName(), new ZsonValue(comment, value));
+				map.put(field.getName(), new ZsonValue(comment, value, format));
 				if (!accessible) field.setAccessible(false);
 			} catch (IllegalAccessException e) {
 				throw new RuntimeException("Failed to get field " + field.getName(), e);
@@ -1051,7 +1052,7 @@ public final class Zson {
 			if (quoteKeys)
 				output.append('"');
 
-			output.append(": ").append(value(zv.value));
+			output.append(": ").append(value(zv.value, zv.format));
 		}
 
 		output.append("\n}");
@@ -1081,7 +1082,7 @@ public final class Zson {
 	 * @return a JSON5-compatible string representation of the value.
 	 */
 	@SuppressWarnings("unchecked")
-	public String value(Object value) {
+	public String value(Object value, String format) {
 		if (value instanceof Map<?, ?>) {
 			try {
 				return stringify((Map<String, ZsonValue>) value).replace("\n", "\n" + indent);
@@ -1097,9 +1098,9 @@ public final class Zson {
 				throw new StackOverflowError("Map is circular");
 			}
 		} else if (value instanceof String || value instanceof Character) {
-			return '"' + escape(value.toString(), '"') + '"';
+			return '"' + escape(format.formatted(value.toString()), '"') + '"';
 		} else if (value instanceof Number || value instanceof Boolean || value == null) {
-			return String.valueOf(value);
+			return format.formatted(value);
 		} else if (value instanceof Iterable<?> iterableValue) {
 			StringBuilder output = new StringBuilder("[");
 			String indent = expandArrays ? this.indent : " ";
@@ -1118,7 +1119,7 @@ public final class Zson {
 					output.append(indent).append(indent);
 				}
 
-				output.append(value(obj).replace("\n", "\n" + indent + indent));
+				output.append(value(obj, format).replace("\n", "\n" + indent + indent));
 			}
 
 			output.append(indent);
@@ -1128,10 +1129,14 @@ public final class Zson {
 
 			return output.append("]").toString();
 		} else if(value instanceof Enum<?> enumValue) {
-			return '"' + enumValue.name() + '"';
+			return '"' + format.formatted(enumValue.name()) + '"';
 		} else {
-			return value(obj2Map(value));
+			return format.formatted(value(obj2Map(value)));
 		}
+	}
+	
+	public String value(Object value) {
+		return value(value, "%s");
 	}
 
 	@Contract(value = "_ -> this", mutates = "this")

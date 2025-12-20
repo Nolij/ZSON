@@ -17,6 +17,8 @@ public @interface ZsonField {
 	 * @return a comment that describes this field, to be included in the ZSON output.
 	 */
 	String comment() default ZsonValue.NO_COMMENT;
+	
+	String format() default "%s";
 
 	/**
 	 * @return whether to include this field when (de)serializing, even if it is private or static.

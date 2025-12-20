@@ -27,12 +27,20 @@ public final class ZsonValue {
 	@Nullable
 	public Object value;
 	
-	public ZsonValue(@NotNull String comment, @Nullable Object value) {
+	@NotNull
+	public String format;
+	
+	public ZsonValue(@NotNull String comment, @Nullable Object value, @NotNull String format) {
 		this.comment = comment;
 		this.value = value;
+		this.format = format;
 	}
 	
-	public ZsonValue(Object value) {
+	public ZsonValue(@NotNull String comment, @Nullable Object value) {
+		this(comment, value, "%s");
+	}
+	
+	public ZsonValue(@Nullable Object value) {
 		this(NO_COMMENT, value);
 	}
 
@@ -49,9 +57,10 @@ public final class ZsonValue {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder("ZsonValue{");
-		if(!comment.equals(NO_COMMENT)) {
+		if (!comment.equals(NO_COMMENT))
 			sb.append("comment='").append(comment).append("', ");
-		}
+		if (!format.equals("%s"))
+			sb.append("format='").append(format).append("', ");
 		return sb.append("value=").append(value).append('}').toString();
 	}
 }
