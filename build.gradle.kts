@@ -143,7 +143,16 @@ val tauPublishTask = tau.publishing.publish {
     changelog = tau.versioning.commitChangeLog
 
     artifact {
-        files(sourcesJar.archiveFile)
+        files(
+            provider { tasks.jar.get().archiveFile }, 
+            provider { downgradeJar17.get().archiveFile }, 
+            provider { downgradeJar8.get().archiveFile }, 
+            sourcesJar.archiveFile,
+            provider {
+                @Suppress("UNCHECKED_CAST")
+                (tasks["javadocJar"] as TaskProvider<AbstractArchiveTask>).get().archiveFile
+            }
+        )
     }
     
     github {
