@@ -9,7 +9,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
@@ -20,12 +20,12 @@ jobs:
       - name: :test
         run: ./gradlew test --stacktrace
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ZSON
           path: "**/zson-*.jar"
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Test Results
           path: "build/reports/tests/**"

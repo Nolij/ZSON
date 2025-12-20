@@ -1,4 +1,4 @@
-name: release
+name: release_dev
 on: [ workflow_dispatch ]
 
 env:
@@ -23,7 +23,7 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           cache-read-only: true
       - name: :release
-        run: ./gradlew publish -Prelease_channel=RELEASE
+        run: ./gradlew publish -Prelease_channel=DEV_BUILD --stacktrace
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GRGIT_USER: ${{ secrets.GITHUB_TOKEN }}
