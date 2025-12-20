@@ -29,4 +29,15 @@ public @interface ZsonField {
 	 * @return whether to exclude this field when (de)serializing.
 	 */
 	boolean exclude() default false;
+	
+	/**
+	 * @return whether this field should only be serialized, never deserialized (always true for final fields).
+	 */
+	boolean serializeOnly() default false;
+	
+	/**
+	 * @return whether this field should only be deserialized, never serialized.
+	 */
+	boolean deserializeOnly() default false;
+	
 }

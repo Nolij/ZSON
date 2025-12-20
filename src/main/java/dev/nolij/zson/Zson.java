@@ -284,14 +284,14 @@ public final class Zson {
 	public static <T> T map2Obj(@NotNull Map<String, ZsonValue> map, @NotNull Class<T> type) {
 		try {
 			T object;
-			if(type.isArray()) {
+			if (type.isArray()) {
 				object = (T) Array.newInstance(type.getComponentType(), map.size());
 			} else {
 				object = type.getDeclaredConstructor().newInstance();
 			}
 			for (Field field : type.getDeclaredFields()) {
-				if(!shouldInclude(field, false)) continue;
-				if(!map.containsKey(field.getName())) {
+				if (!shouldInclude(field, false)) continue;
+				if (!map.containsKey(field.getName())) {
 					continue;
 				}
 				setField(field, object, map.get(field.getName()).value);
@@ -305,22 +305,33 @@ public final class Zson {
 	/**
 	 * Checks if the given field should be included in a JSON map.
 	 * @param field the field to check.
-	 * @param forDeserialization if true, the field is being checked for deserialization. If false, it's being checked for serialization.
-	 *                           This affects whether static fields are included: if true,
-	 *                           static fields are included if they are annotated with {@link ZsonField @ZsonField(include = true)};
-	 *                           otherwise they are not included at all.
+	 * @param serializing if true, the field is being checked for serialization. If true, it's being checked for serialization.
+	 *                    This affects whether static fields are included: if false,
+	 *                    static fields are included if they are annotated with {@link ZsonField @ZsonField(include = true)};
+	 *                    otherwise they are not included at all.
 	 * @return true if the field should be included in a JSON map, false otherwise.
 	 */
-	private static boolean shouldInclude(Field field, boolean forDeserialization) {
+	private static boolean shouldInclude(Field field, boolean serializing) {
 		ZsonField value = field.getAnnotation(ZsonField.class);
 
 		int modifiers = field.getModifiers();
-		if(Modifier.isTransient(modifiers)) return false; // ignore transient fields
-		boolean defaultInclude = (forDeserialization || !Modifier.isStatic(modifiers)) && Modifier.isPublic(modifiers);
+		if (Modifier.isTransient(modifiers))
+			return false; // ignore transient fields
+		else if (!serializing && Modifier.isFinal(modifiers))
+			return false; // ignore final fields when deserializing
+		
+		boolean defaultInclude = (serializing || !Modifier.isStatic(modifiers)) && Modifier.isPublic(modifiers);
 
-		if(value == null) return defaultInclude;
-		if (value.exclude()) return false; // if field is explicitly excluded, ignore it
-		return defaultInclude || (forDeserialization && value.include());
+		if (value == null) 
+			return defaultInclude;
+		else if (serializing && value.deserializeOnly())
+			return false; // when serializing, ignore fields marked deserializeOnly
+		else if (!serializing && value.serializeOnly())
+			return false; // when deserializing, ignore field marked serializeOnly
+		else if (value.exclude())
+			return false; // if field is explicitly excluded, ignore it
+		
+		return defaultInclude || (serializing && value.include());
 	}
 
 	/**
