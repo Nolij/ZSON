@@ -1,6 +1,5 @@
 import org.objectweb.asm.tools.Retrofitter
 import xyz.wagyourtail.jvmdg.gradle.task.DowngradeJar
-import java.time.ZonedDateTime
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
 import java.util.zip.Deflater
@@ -9,89 +8,21 @@ plugins {
     id("idea")
     id("java")
     id("maven-publish")
-    id("org.ajoberstar.grgit")
-    id("com.github.breadmoirai.github-release")
+    id("org.taumc.gradle.versioning")
+    id("org.taumc.gradle.publishing")
     id("xyz.wagyourtail.jvmdowngrader")
 }
 
-operator fun String.invoke(): String = rootProject.properties[this] as? String ?: error("Property $this not found")
+fun property(name: String): String = rootProject.properties[name] as? String ?: error("Property $this not found")
 
-group = "maven_group"()
-base.archivesName = "project_name"()
-
-//region Git
-enum class ReleaseChannel(val suffix: String? = null) {
-    DEV_BUILD("dev"),
-    RELEASE,
+group = property("maven_group")
+base {
+    archivesName = property("project_name")
 }
 
-val headDateTime: ZonedDateTime = grgit.head().dateTime
-
-val branchName = grgit.branch.current().name!!
-val releaseTagPrefix = "release/"
-
-val releaseTags = grgit.tag.list()
-    .filter { tag -> tag.name.startsWith(releaseTagPrefix) }
-    .sortedWith { tag1, tag2 ->
-        if (tag1.commit.dateTime == tag2.commit.dateTime)
-            if (tag1.name.length != tag2.name.length)
-                return@sortedWith tag1.name.length.compareTo(tag2.name.length)
-            else
-                return@sortedWith tag1.name.compareTo(tag2.name)
-        else
-            return@sortedWith tag2.commit.dateTime.compareTo(tag1.commit.dateTime)
-    }
-    .dropWhile { tag -> tag.commit.dateTime > headDateTime }
-
-val isExternalCI = (rootProject.properties["external_publish"] as String?).toBoolean()
-val isRelease = rootProject.hasProperty("release_channel") || isExternalCI
-val releaseIncrement = if (isExternalCI) 0 else 1
-val releaseChannel: ReleaseChannel =
-    if (isExternalCI) {
-        val tagName = releaseTags.first().name
-        val suffix = """-(\w+)\.\d+$""".toRegex().find(tagName)?.groupValues?.get(1)
-        if (suffix != null)
-            ReleaseChannel.values().find { channel -> channel.suffix == suffix }!!
-        else
-            ReleaseChannel.RELEASE
-    } else {
-        if (isRelease)
-            ReleaseChannel.valueOf("release_channel"())
-        else
-            ReleaseChannel.DEV_BUILD
-    }
-
-println("Release Channel: $releaseChannel")
-
-val minorVersion = "project_version"()
-val minorTagPrefix = "${releaseTagPrefix}${minorVersion}."
-
-val patchHistory = releaseTags
-    .map { tag -> tag.name }
-    .filter { name -> name.startsWith(minorTagPrefix) }
-    .map { name -> name.substring(minorTagPrefix.length) }
-
-val maxPatch = patchHistory.maxOfOrNull { it.substringBefore('-').toInt() }
-val patch =
-    maxPatch?.plus(
-        if (patchHistory.contains(maxPatch.toString()))
-            releaseIncrement
-        else
-            0
-    ) ?: 0
-var patchAndSuffix = patch.toString()
-
-if (releaseChannel.suffix != null) {
-    patchAndSuffix += "-${releaseChannel.suffix}"
-}
-
-val versionString = "${minorVersion}.${patchAndSuffix}"
-val versionTagName = "${releaseTagPrefix}${versionString}"
-
-//endregion
-
-version = versionString
-println("ZSON Version: $versionString")
+val isRebuild = (rootProject.properties["external_publish"] as String?).toBoolean()
+version = tau.versioning.version(property("project_version"), project.properties["release_channel"], isRebuild = isRebuild)
+println("ZSON Version: ${tau.versioning.version}")
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -106,9 +37,9 @@ repositories {
 }
 
 dependencies {
-    compileOnly("org.jetbrains:annotations:${"jetbrains_annotations_version"()}")
+    compileOnly("org.jetbrains:annotations:${property("jetbrains_annotations_version")}")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:${"junit_version"()}")
+    testImplementation("org.junit.jupiter:junit-jupiter:${property("junit_version")}")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -117,7 +48,7 @@ tasks.javadoc {
     options.addBooleanOption("Xdoclint:none", true)
 }
 
-tasks.downgradeJar {
+jvmdg.defaultTask {
     dependsOn(tasks.jar)
     downgradeTo = JavaVersion.VERSION_1_8
     archiveClassifier = "downgraded-8"
@@ -152,6 +83,12 @@ tasks.downgradeJar {
     }
 }
 
+jvmdg.defaultShadeTask {
+    enabled = false
+}
+
+val downgradeJar8 = jvmdg.defaultTask
+
 val downgradeJar17 = tasks.register<DowngradeJar>("downgradeJar17") {
     dependsOn(tasks.jar)
     downgradeTo = JavaVersion.VERSION_17
@@ -164,7 +101,7 @@ tasks.jar {
         rename { "${it}_${rootProject.name}" }
     }
 
-    finalizedBy(tasks.downgradeJar, downgradeJar17)
+    finalizedBy(downgradeJar17, downgradeJar8)
 }
 
 val sourcesJar = tasks.getByName<Jar>("sourcesJar") {
@@ -174,7 +111,7 @@ val sourcesJar = tasks.getByName<Jar>("sourcesJar") {
 }
 
 tasks.assemble {
-    dependsOn(tasks.jar, sourcesJar, downgradeJar17)
+    dependsOn(tasks.jar, sourcesJar, tasks.check)
 }
 
 tasks.test {
@@ -199,21 +136,28 @@ tasks.withType<AbstractArchiveTask> {
     isReproducibleFileOrder = true
 }
 
-githubRelease {
-    setToken(providers.environmentVariable("GITHUB_TOKEN"))
-    setTagName(versionTagName)
-    setTargetCommitish("master")
-    setReleaseName(versionString)
-    setReleaseAssets(tasks.jar.get().archiveFile, sourcesJar.archiveFile)
+val tauPublishTask = tau.publishing.publish {
+    dependsOn(tasks.assemble)
+
+    useTauGradleVersioning()
+    changelog = tau.versioning.commitChangeLog
+
+    artifact {
+        files(sourcesJar.archiveFile)
+    }
+    
+    github {
+        supportAllChannels()
+
+        accessToken = providers.environmentVariable("GITHUB_TOKEN")
+        repository = "Nolij/ZSON"
+        tagName = tau.versioning.releaseTag
+    }
 }
 
-tasks.githubRelease {
-    dependsOn(tasks.assemble, tasks.check)
-}
-
-if (!isExternalCI) {
+if (!isRebuild) {
     tasks.publish {
-        dependsOn(tasks.githubRelease)
+        dependsOn(tauPublishTask)
     }
 }
 
@@ -222,7 +166,7 @@ publishing {
         if (!System.getenv("local_maven_url").isNullOrEmpty())
             maven(System.getenv("local_maven_url"))
         
-        if (!isExternalCI) {
+        if (!isRebuild) {
             maven("https://maven.taumc.org/releases") {
                 credentials {
                     username = System.getenv("MAVEN_USERNAME")
@@ -233,11 +177,11 @@ publishing {
     }
 
     publications {
-        create<MavenPublication>("project_name"()) {
-            artifact(tasks.jar) // java 21
+        create<MavenPublication>(property("project_name")) {
+            artifact(tasks.jar)
             artifact(downgradeJar17) // java 17
-            artifact(tasks.downgradeJar) // java 8
-            artifact(sourcesJar) // java 21 sources
+            artifact(downgradeJar8) // java 8
+            artifact(sourcesJar)
             artifact(tasks["javadocJar"])
         }
     }

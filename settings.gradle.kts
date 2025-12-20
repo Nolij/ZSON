@@ -1,26 +1,27 @@
 pluginManagement {
     repositories {
+        mavenCentral()
+        maven("https://maven.taumc.org/releases")
+        maven("https://maven.wagyourtail.xyz/releases")
         gradlePluginPortal {
             content {
                 excludeGroup("org.apache.logging.log4j")
             }
         }
-        maven("https://maven.wagyourtail.xyz/releases")
-        maven("https://maven.wagyourtail.xyz/snapshots")
     }
-}
 
-buildscript {
-    dependencies {
-        classpath("org.apache.commons:commons-io:1.3.2")
+    plugins {
+        fun property(name: String) = settings.extra.properties[name] as? String ?: error("Property `${name}` is not defined in gradle.properties!")
+
+        id("org.gradle.toolchains.foojay-resolver-convention") version(property("foojay_resolver_convention_version"))
+        id("org.taumc.gradle.versioning") version(property("taugradle_version"))
+        id("org.taumc.gradle.publishing") version(property("taugradle_version"))
+        id("xyz.wagyourtail.jvmdowngrader") version(property("jvmdg_version"))
     }
 }
 
 plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version("0.7.0")
-    id("org.ajoberstar.grgit") version("5.2.2") apply(false)
-    id("com.github.breadmoirai.github-release") version("2.4.1") apply(false)
-    id("xyz.wagyourtail.jvmdowngrader") version("0.4.1-SNAPSHOT") apply(false)
+    id("org.gradle.toolchains.foojay-resolver-convention")
 }
 
 rootProject.name = "zson"
