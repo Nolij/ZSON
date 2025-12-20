@@ -287,7 +287,11 @@ public final class Zson {
 			if (type.isArray()) {
 				object = (T) Array.newInstance(type.getComponentType(), map.size());
 			} else {
-				object = type.getDeclaredConstructor().newInstance();
+				try {
+					object = type.getDeclaredConstructor(Map.class).newInstance(map);
+				} catch (ReflectiveOperationException ignored) {
+					object = type.getDeclaredConstructor().newInstance();
+				}
 			}
 			for (Field field : type.getDeclaredFields()) {
 				if (!shouldInclude(field, false)) continue;
