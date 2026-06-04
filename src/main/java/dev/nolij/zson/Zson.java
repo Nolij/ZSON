@@ -243,7 +243,15 @@ public final class Zson {
 				Object value = field.get(object);
 
 				if(value instanceof Map) {
-					value = obj2Map(value);
+					Map<String, ZsonValue> newMap = object();
+					for (Map.Entry<?, ?> e : ((Map<?, ?>) value).entrySet()) {
+						if(e.getKey() instanceof String key) {
+							newMap.put(key, new ZsonValue(NO_COMMENT, e.getValue()));
+						} else {
+							throw new IllegalArgumentException("Expected string key, got " + e.getKey());
+						}
+					}
+					value = newMap;
 				} else if(value instanceof Iterable) {
 					List<Object> list = new ArrayList<>();
 					for (Object o : (Iterable<?>) value) {

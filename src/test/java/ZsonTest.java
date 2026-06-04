@@ -6,6 +6,7 @@ import dev.nolij.zson.ZsonValue;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -383,6 +384,11 @@ public class ZsonTest {
 		{
 			"a": 0,
 			"set": [ "a", "b", "c" ],
+			"map": {
+				"a": "x",
+				"b": "y",
+				"c": "z"
+			},
 			"b": {
 				"bool": false,
 				"b": 0,
@@ -426,13 +432,17 @@ public class ZsonTest {
 	public static class ObjectFields {
 		public int a;
 		public Set<String> set = new HashSet<>();
+		public Map<String, String> map = new HashMap<>();
 		public AllTypes b = new AllTypes();
 		public TestEnum c = TestEnum.ONE;
 
 		{
-			set.add("a");
-			set.add("b");
-			set.add("c");
+			set.addAll(List.of("a", "b", "c"));
+			map.putAll(Map.of(
+				"a", "x",
+				"b", "y",
+				"c", "z"
+			));
 		}
 	}
 
