@@ -1,6 +1,6 @@
 repositories.mavenCentral()
 dependencies {
-    implementation("org.ow2.asm:asm:9.7")
+    implementation("org.ow2.asm:asm:9.10.1")
 }
 
 java {

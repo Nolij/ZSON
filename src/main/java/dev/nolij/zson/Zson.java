@@ -13,11 +13,16 @@ import java.io.StringWriter;
 import java.io.Writer;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.GenericArrayType;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
 
 import java.math.BigInteger;
 
@@ -241,25 +246,7 @@ public final class Zson {
 				if (!accessible) field.setAccessible(true);
 
 				Object value = field.get(object);
-
-				if(value instanceof Map) {
-					value = obj2Map(value);
-				} else if(value instanceof Iterable) {
-					List<Object> list = new ArrayList<>();
-					for (Object o : (Iterable<?>) value) {
-						list.add(o);
-					}
-					value = list;
-				} else if(value != null) {
-					if(value.getClass().isArray()) {
-						List<Object> list = new ArrayList<>();
-						int length = Array.getLength(value);
-						for (int i = 0; i < length; i++) {
-							list.add(Array.get(value, i));
-						}
-						value = list;
-					}
-				}
+				value = normalizeValue(value);
 
 				map.put(field.getName(), new ZsonValue(comment, value, format));
 				if (!accessible) field.setAccessible(false);
@@ -268,6 +255,45 @@ public final class Zson {
 			}
 		}
 		return map;
+	}
+
+	@Nullable
+	private static Object normalizeValue(@Nullable Object value) {
+		if (value instanceof ZsonValue zv) {
+			return normalizeValue(zv.value);
+		}
+
+		if (value == null || value instanceof String || value instanceof Character || value instanceof Number ||
+				value instanceof Boolean || value instanceof Enum<?>) {
+			return value;
+		}
+
+		if (value instanceof Map<?, ?>) {
+			Map<String, ZsonValue> newMap = object();
+			for (Map.Entry<?, ?> e : ((Map<?, ?>) value).entrySet()) {
+				if (e.getKey() instanceof String key) {
+					newMap.put(key, new ZsonValue(NO_COMMENT, normalizeValue(e.getValue())));
+				} else {
+					throw new IllegalArgumentException("Expected string key, got " + e.getKey());
+				}
+			}
+			return newMap;
+		} else if (value instanceof Iterable<?>) {
+			List<Object> list = new ArrayList<>();
+			for (Object o : (Iterable<?>) value) {
+				list.add(normalizeValue(o));
+			}
+			return list;
+		} else if (value.getClass().isArray()) {
+			List<Object> list = new ArrayList<>();
+			int length = Array.getLength(value);
+			for (int i = 0; i < length; i++) {
+				list.add(normalizeValue(Array.get(value, i)));
+			}
+			return list;
+		} else {
+			return obj2Map(value);
+		}
 	}
 
 	/**
@@ -298,7 +324,7 @@ public final class Zson {
 				if (!map.containsKey(field.getName())) {
 					continue;
 				}
-				setField(field, object, map.get(field.getName()).value);
+				setField(field, object, map.get(field.getName()).value, field.getGenericType());
 			}
 			return object;
 		} catch (Exception e) {
@@ -343,10 +369,11 @@ public final class Zson {
 	 * @param field the field to set. Must not be null.
 	 * @param object the object to set the field in. Must not be null.
 	 * @param value the value to set the field to. May be null. If primitive, will be an int or double.
+	 * @param genericType the generic field type used for nested collections and maps.
 	 * @param <T> the type of the field.
 	 */
 	@SuppressWarnings({"unchecked", "rawtypes"})
-	private static <T> void setField(Field field, Object object, Object value) {
+	private static <T> void setField(Field field, Object object, Object value, Type genericType) {
 		Class<T> type = (Class<T>) field.getType();
 		boolean accessible = field.isAccessible();
 		if(!accessible) field.setAccessible(true);
@@ -363,51 +390,7 @@ public final class Zson {
 					case "char" -> field.setChar(object, ((String) value).charAt(0));
 				}
 			} else {
-				Object finalValue = value;
-				if (type.isEnum() && value instanceof String) {
-					finalValue = Enum.valueOf((Class<Enum>) type, (String) value);
-				} else if (type.isArray() && value instanceof Iterable<?> itr) {
-					int size = 0;
-					for (Object ignored : itr) size++;
-
-					Object array = Array.newInstance(type.getComponentType(), size);
-					int i = 0;
-					for (Object o : itr) {
-						Array.set(array, i++, o);
-					}
-					finalValue = array;
-				} else if (value instanceof Map && !Map.class.isAssignableFrom(type)) {
-					finalValue = map2Obj((Map<String, ZsonValue>) value, type);
-				} else if(Collection.class.isAssignableFrom(type)) {
-					Collection<Object> collection;
-					if(type.isInterface()) {
-						if(List.class.isAssignableFrom(type)) {
-							collection = new ArrayList<>();
-						} else if(Set.class.isAssignableFrom(type)) {
-							collection = new LinkedHashSet<>();
-						} else {
-							throw new IllegalArgumentException("Unsupported collection type: " + type);
-						}
-					} else {
-						collection = (Collection<Object>) type.getDeclaredConstructor().newInstance();
-					}
-
-					if(value.getClass().isArray()) {
-						int length = Array.getLength(value);
-						for (int i = 0; i < length; i++) {
-							collection.add(Array.get(value, i));
-						}
-					} else if(value instanceof Iterable<?> itr) {
-						for (Object o : itr) {
-							collection.add(o);
-						}
-					} else {
-						throw new IllegalArgumentException("Expected array or iterable, got " + value.getClass());
-					}
-
-					finalValue = collection;
-				}
-				field.set(object, finalValue);
+				field.set(object, convertValue(genericType, value));
 			}
 		} catch (Exception e) {
 			throw new AssertionError(
@@ -417,6 +400,187 @@ public final class Zson {
 		} finally {
 			if(!accessible) field.setAccessible(false);
 		}
+	}
+
+	@Nullable
+	private static Object convertValue(@NotNull Type targetType, @Nullable Object value) throws ReflectiveOperationException {
+		if (value == null) {
+			return null;
+		}
+
+		if (value instanceof ZsonValue zv) {
+			return convertValue(targetType, zv.value);
+		}
+
+		switch(targetType) {
+			case Class<?> c -> {
+				return convertValue(c, value);
+			}
+			case ParameterizedType p -> {
+				Class<?> rawType = (Class<?>) p.getRawType();
+				Type[] args = p.getActualTypeArguments();
+
+				if(Map.class.isAssignableFrom(rawType)) {
+					if(!(value instanceof Map<?, ?> mapValue)) {
+						throw new IllegalArgumentException("Expected map, got " + value.getClass());
+					}
+
+					Map<Object, Object> map = instantiateMap(rawType);
+					for(Map.Entry<?, ?> entry : mapValue.entrySet()) {
+						if(!(entry.getKey() instanceof String key)) {
+							throw new IllegalArgumentException("Expected string key, got " + entry.getKey());
+						}
+						map.put(key, convertValue(args[1], entry.getValue()));
+					}
+					return map;
+				} else if(Collection.class.isAssignableFrom(rawType)) {
+					Collection<Object> collection = instantiateCollection(rawType);
+					for(Object element : iterate(value)) {
+						collection.add(convertValue(args[0], element));
+					}
+					return collection;
+				} else {
+					return convertValue(rawType, value);
+				}
+			}
+			case GenericArrayType a -> {
+				List<Object> elements = new ArrayList<>();
+				for(Object element : iterate(value)) {
+					elements.add(convertValue(a.getGenericComponentType(), element));
+				}
+				Object array = Array.newInstance(componentClass(a.getGenericComponentType()), elements.size());
+				for(int i = 0; i < elements.size(); i++) {
+					Array.set(array, i, elements.get(i));
+				}
+				return array;
+			}
+			case TypeVariable<?> typeVariable -> {
+				Type[] bounds = typeVariable.getBounds();
+				return bounds.length == 0 ? value : convertValue(bounds[0], value);
+			}
+			case WildcardType wildcardType -> {
+				Type[] bounds = wildcardType.getUpperBounds();
+				return bounds.length == 0 ? value : convertValue(bounds[0], value);
+			}
+			default -> {
+			}
+		}
+
+		return value;
+	}
+
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private static Object convertValue(@NotNull Class<?> type, @NotNull Object value) throws ReflectiveOperationException {
+		if (type.isInstance(value)) {
+			return value;
+		}
+
+		if (type == String.class) {
+			return value.toString();
+		} else if (type == Character.class || type == char.class) {
+			if (value instanceof Character c) {
+				return c;
+			} else if (value instanceof String s && !s.isEmpty()) {
+				return s.charAt(0);
+			}
+		} else if (type == Boolean.class || type == boolean.class) {
+			if (value instanceof Boolean b) {
+				return b;
+			}
+		} else if (Number.class.isAssignableFrom(type) || type.isPrimitive()) {
+			if (value instanceof Number number) {
+				if (type == Byte.class || type == byte.class) return number.byteValue();
+				if (type == Short.class || type == short.class) return number.shortValue();
+				if (type == Integer.class || type == int.class) return number.intValue();
+				if (type == Long.class || type == long.class) return number.longValue();
+				if (type == Float.class || type == float.class) return number.floatValue();
+				if (type == Double.class || type == double.class) return number.doubleValue();
+			}
+		} else if (type.isEnum() && value instanceof String s) {
+			return Enum.valueOf((Class<Enum>) type, s);
+		} else if (type.isArray()) {
+			List<Object> elements = new ArrayList<>();
+			for (Object element : iterate(value)) {
+				elements.add(convertValue(type.getComponentType(), element));
+			}
+			Object array = Array.newInstance(type.getComponentType(), elements.size());
+			for (int i = 0; i < elements.size(); i++) {
+				Array.set(array, i, elements.get(i));
+			}
+			return array;
+		} else if (Collection.class.isAssignableFrom(type)) {
+			Collection<Object> collection = instantiateCollection(type);
+			for (Object element : iterate(value)) {
+				collection.add(element);
+			}
+			return collection;
+		} else if (value instanceof Map && !Map.class.isAssignableFrom(type)) {
+			return map2Obj((Map<String, ZsonValue>) value, type);
+		}
+
+		return value;
+	}
+
+	@NotNull
+	@SuppressWarnings("unchecked")
+	private static Collection<Object> instantiateCollection(@NotNull Class<?> type) throws ReflectiveOperationException {
+		if(type.isInterface()) {
+			if(List.class.isAssignableFrom(type)) {
+				return new ArrayList<>();
+			} else if(Set.class.isAssignableFrom(type)) {
+				return new LinkedHashSet<>();
+			} else {
+				throw new IllegalArgumentException("Unsupported collection type: " + type);
+			}
+		}
+
+		return (Collection<Object>) type.getDeclaredConstructor().newInstance();
+	}
+
+	@NotNull
+	@SuppressWarnings("unchecked")
+	private static Map<Object, Object> instantiateMap(@NotNull Class<?> type) throws ReflectiveOperationException {
+		if(type.isInterface()) {
+			return new LinkedHashMap<>();
+		}
+
+		return (Map<Object, Object>) type.getDeclaredConstructor().newInstance();
+	}
+
+	@NotNull
+	private static Iterable<?> iterate(@NotNull Object value) {
+		if (value instanceof Iterable<?> iterable) {
+			return iterable;
+		}
+
+		if (value.getClass().isArray()) {
+			List<Object> list = new ArrayList<>();
+			int length = Array.getLength(value);
+			for (int i = 0; i < length; i++) {
+				list.add(Array.get(value, i));
+			}
+			return list;
+		}
+
+		throw new IllegalArgumentException("Expected array or iterable, got " + value.getClass());
+	}
+
+	@NotNull
+	private static Class<?> componentClass(@NotNull Type type) {
+		return switch(type) {
+			case Class<?> c -> c;
+			case ParameterizedType p -> (Class<?>) p.getRawType();
+			case GenericArrayType a -> Array.newInstance(componentClass(a.getGenericComponentType()), 0).getClass();
+			case TypeVariable<?> t -> {
+				Type[] bounds = t.getBounds();
+				yield bounds.length == 0 ? Object.class : componentClass(bounds[0]);
+			}
+			case WildcardType w -> {
+				Type[] bounds = w.getUpperBounds();
+				yield bounds.length == 0 ? Object.class : componentClass(bounds[0]);
+			}
+			default -> Object.class;
+		};
 	}
 
 	//endregion

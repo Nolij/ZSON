@@ -6,6 +6,9 @@ import dev.nolij.zson.ZsonValue;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -383,6 +386,11 @@ public class ZsonTest {
 		{
 			"a": 0,
 			"set": [ "a", "b", "c" ],
+			"map": {
+				"a": "x",
+				"b": "y",
+				"c": "z"
+			},
 			"b": {
 				"bool": false,
 				"b": 0,
@@ -410,6 +418,32 @@ public class ZsonTest {
 		assertEquals(TestEnum.ONE, obj.c);
 	}
 
+	@Test
+	public void testNestedValues() {
+		NestedValues original = new NestedValues();
+
+		Map<String, ZsonValue> json = Zson.obj2Map(original);
+		NestedValues roundTrip = Zson.map2Obj(Zson.parseString(new Zson().stringify(json)), NestedValues.class);
+
+		assertEquals(original.list.size(), roundTrip.list.size());
+		assertEquals(original.list.get(0).i, roundTrip.list.get(0).i);
+		assertEquals(original.list.get(0).str, roundTrip.list.get(0).str);
+		assertEquals(original.list.get(1).i, roundTrip.list.get(1).i);
+		assertEquals(original.list.get(1).str, roundTrip.list.get(1).str);
+
+		assertEquals(original.map.size(), roundTrip.map.size());
+		assertEquals(original.map.get("alpha").i, roundTrip.map.get("alpha").i);
+		assertEquals(original.map.get("alpha").str, roundTrip.map.get("alpha").str);
+		assertEquals(original.map.get("beta").i, roundTrip.map.get("beta").i);
+		assertEquals(original.map.get("beta").str, roundTrip.map.get("beta").str);
+
+		assertEquals(original.array.length, roundTrip.array.length);
+		assertEquals(original.array[0].i, roundTrip.array[0].i);
+		assertEquals(original.array[0].str, roundTrip.array[0].str);
+		assertEquals(original.array[1].i, roundTrip.array[1].i);
+		assertEquals(original.array[1].str, roundTrip.array[1].str);
+	}
+
 	public static class AllTypes {
 		public boolean bool;
 		public byte b;
@@ -426,13 +460,41 @@ public class ZsonTest {
 	public static class ObjectFields {
 		public int a;
 		public Set<String> set = new HashSet<>();
+		public Map<String, String> map = new HashMap<>();
 		public AllTypes b = new AllTypes();
 		public TestEnum c = TestEnum.ONE;
 
 		{
-			set.add("a");
-			set.add("b");
-			set.add("c");
+			set.addAll(List.of("a", "b", "c"));
+			map.putAll(Map.of(
+				"a", "x",
+				"b", "y",
+				"c", "z"
+			));
+		}
+	}
+
+	public static class NestedValues {
+		public List<AllTypes> list = new ArrayList<>();
+		public Map<String, AllTypes> map = new LinkedHashMap<>();
+		public AllTypes[] array = {new AllTypes(), new AllTypes()};
+
+		public NestedValues() {
+			list.add(make(11, "first"));
+			list.add(make(12, "second"));
+
+			map.put("alpha", make(22, "alpha"));
+			map.put("beta", make(23, "beta"));
+
+			array[0] = make(33, "gamma");
+			array[1] = make(34, "omega");
+		}
+
+		private static AllTypes make(int i, String str) {
+			AllTypes value = new AllTypes();
+			value.i = i;
+			value.str = str;
+			return value;
 		}
 	}
 
