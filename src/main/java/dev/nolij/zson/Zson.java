@@ -1234,12 +1234,13 @@ public final class Zson {
 			}
 
 			output.append(indent);
-			if (quoteKeys)
+			if (quoteKeys) {
 				output.append('"');
-
-			output.append(checkIdentifier(entry.getKey()));
-			if (quoteKeys)
+				output.append(entry.getKey());
 				output.append('"');
+			} else {
+				output.append(checkIdentifier(entry.getKey()));
+			}
 
 			output.append(": ").append(value(zv.value, zv.format));
 		}
