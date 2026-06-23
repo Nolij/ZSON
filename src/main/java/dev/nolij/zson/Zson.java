@@ -241,12 +241,13 @@ public final class Zson {
 			ZsonField annotation = field.getAnnotation(ZsonField.class);
 			String comment = annotation == null ? NO_COMMENT : annotation.comment();
 			String format = annotation == null ? "%s" : annotation.format();
+			boolean serializeOnly = annotation != null && annotation.serializeOnly();
 			try {
 				boolean accessible = field.isAccessible();
 				if (!accessible) field.setAccessible(true);
 
 				Object value = field.get(object);
-				value = normalizeValue(value);
+				value = normalizeValue(value, serializeOnly);
 
 				map.put(field.getName(), new ZsonValue(comment, value, format));
 				if (!accessible) field.setAccessible(false);
@@ -258,9 +259,9 @@ public final class Zson {
 	}
 
 	@Nullable
-	private static Object normalizeValue(@Nullable Object value) {
+	private static Object normalizeValue(@Nullable Object value, boolean serializeOnly) {
 		if (value instanceof ZsonValue zv) {
-			return normalizeValue(zv.value);
+			return normalizeValue(zv.value, serializeOnly);
 		}
 
 		if (value == null || value instanceof String || value instanceof Character || value instanceof Number ||
@@ -271,24 +272,33 @@ public final class Zson {
 		if (value instanceof Map<?, ?>) {
 			Map<String, ZsonValue> newMap = object();
 			for (Map.Entry<?, ?> e : ((Map<?, ?>) value).entrySet()) {
-				if (e.getKey() instanceof String key) {
-					newMap.put(key, new ZsonValue(NO_COMMENT, normalizeValue(e.getValue())));
+				Object key = e.getKey();
+				String stringKey;
+				if (key instanceof String asString) {
+					stringKey = asString;
+				} else if (serializeOnly) {
+					stringKey = key.toString();
 				} else {
-					throw new IllegalArgumentException("Expected string key, got " + e.getKey());
+					stringKey = null;
+				}
+				if (stringKey != null) {
+					newMap.put(stringKey, new ZsonValue(NO_COMMENT, normalizeValue(e.getValue(), serializeOnly)));
+				} else {
+					throw new IllegalArgumentException("Expected string key, got " + key);
 				}
 			}
 			return newMap;
 		} else if (value instanceof Iterable<?>) {
 			List<Object> list = new ArrayList<>();
 			for (Object o : (Iterable<?>) value) {
-				list.add(normalizeValue(o));
+				list.add(normalizeValue(o, serializeOnly));
 			}
 			return list;
 		} else if (value.getClass().isArray()) {
 			List<Object> list = new ArrayList<>();
 			int length = Array.getLength(value);
 			for (int i = 0; i < length; i++) {
-				list.add(normalizeValue(Array.get(value, i)));
+				list.add(normalizeValue(Array.get(value, i), serializeOnly));
 			}
 			return list;
 		} else {
