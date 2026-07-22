@@ -298,6 +298,28 @@ public class ZsonTest {
 	}
 
 	@Test
+	public void testEscapedQuotes() {
+		String json = """
+		{
+			"test": "a\\"b"
+		}""";
+
+		Map<String, ZsonValue> map = Zson.parseString(json);
+		assertEquals("a\"b", map.get("test").value);
+	}
+
+	@Test
+	public void testUnicodeVal() {
+		String json = """
+		{
+			"test": "a\\u0041b"
+		}""";
+
+		Map<String, ZsonValue> map = Zson.parseString(json);
+		assertEquals("aAb", map.get("test").value);
+	}
+
+	@Test
 	public void testUnquotedKeys() {
 		TestObject obj = new TestObject();
 		obj.testEnum = TestEnum.TWO;

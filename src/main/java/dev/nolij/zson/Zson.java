@@ -141,7 +141,7 @@ public final class Zson {
 					yield (char) code;
 				}
 				case 'u' -> {
-					String hex = new String(chars, i, 4);
+					String hex = new String(chars, i + 1, 4);
 					if (hex.length() != 4) {
 						throw new IllegalArgumentException("Invalid unicode escape: " + hex + ", expected 4 characters, found EOS");
 					}
@@ -813,6 +813,7 @@ public final class Zson {
 
 				output.append(Character.toChars(c));
 				escapes--;
+				continue;
 			}
 
 			if (isLineTerminator(c)) {
